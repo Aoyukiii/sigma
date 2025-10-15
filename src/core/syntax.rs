@@ -52,9 +52,9 @@ pub fn pratt_parse<'a>(tok_stream: &'a mut TokenStream<'a>) -> Result<Syntax, Ve
         let Token { kind, span } = next;
         let lhs = match kind {
             TokenKind::Atom(atom) => Syntax::new(SyntaxKind::AtomLiteral(atom.to_string()), span),
-            t => {
+            tok => {
                 return Err(vec![ParseError::BadToken {
-                    tok: "".to_string(),
+                    tok: format!("{}", tok),
                 }]);
             }
         };
