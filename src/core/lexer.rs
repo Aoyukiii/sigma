@@ -49,8 +49,14 @@ pub enum TokenKind<'a> {
     Dot,
     #[token(":")]
     Colon,
+    #[token("+")]
+    Plus,
+    #[token("-")]
+    Minus,
     #[token("*")]
     Star,
+    #[token("/")]
+    Slash,
     #[token("->")]
     Arrow,
     #[token("=>")]
