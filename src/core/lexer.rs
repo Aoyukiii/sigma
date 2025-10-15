@@ -1,12 +1,38 @@
-use logos::{Lexer, Logos};
+use std::iter::Peekable;
 
-fn slice_str_callback<'a>(lex: &mut Lexer<'a, Token<'a>>) -> &'a str {
+use logos::{Lexer as LogosLexer, Logos};
+
+use crate::core::utils::Span;
+
+#[derive(Debug)]
+pub struct Token<'a> {
+    pub kind: TokenKind<'a>,
+    pub span: Span,
+}
+
+pub fn lexer<'a>(source: &'a str) -> TokenStream<'a> {
+    let iter = TokenKind::lexer(source).spanned().map(|(tok, span)| Token {
+        kind: if let Ok(tok) = tok {
+            tok
+        } else {
+            TokenKind::Error
+        },
+        span: (span.start, span.end).into(),
+    });
+
+    let boxed: Box<dyn Iterator<Item = Token<'a>>> = Box::new(iter);
+    boxed.peekable()
+}
+
+pub type TokenStream<'a> = Peekable<Box<dyn Iterator<Item = Token<'a>> + 'a>>;
+
+fn slice_str_callback<'a>(lex: &mut Lexer<'a>) -> &'a str {
     lex.slice()
 }
 
 #[derive(Logos, Debug, PartialEq, Clone)]
-#[logos(skip r"[ \r\t\n\f]+")]
-pub enum Token<'a> {
+#[logos(skip(r"[ \r\t\n\f]+"))]
+pub enum TokenKind<'a> {
     #[token("(")]
     LParen,
     #[token(")")]
@@ -40,13 +66,17 @@ pub enum Token<'a> {
     Atom(&'a str),
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", slice_str_callback)]
     Ident(&'a str),
+
+    Error,
 }
+
+pub type Lexer<'a> = LogosLexer<'a, TokenKind<'a>>;
 
 #[cfg(test)]
 mod test {
     use logos::Logos;
 
-    use crate::core::lexer::Token;
+    use crate::core::lexer::{Token, TokenKind, lexer};
 
     #[test]
     fn lexing() {
@@ -54,29 +84,29 @@ mod test {
             (
                 "Hi, Atom 'atom.",
                 vec![
-                    Ok(Token::Ident("Hi")),
-                    Ok(Token::Comma),
-                    Ok(Token::KwAtom),
-                    Ok(Token::Atom("'atom")),
-                    Ok(Token::Dot),
+                    Ok(TokenKind::Ident("Hi")),
+                    Ok(TokenKind::Comma),
+                    Ok(TokenKind::KwAtom),
+                    Ok(TokenKind::Atom("'atom")),
+                    Ok(TokenKind::Dot),
                 ],
             ),
             (
                 "let me: Type you;",
                 vec![
-                    Ok(Token::KwLet),
-                    Ok(Token::Ident("me")),
-                    Ok(Token::Colon),
-                    Ok(Token::KwType),
-                    Ok(Token::Ident("you")),
-                    Ok(Token::Semicolon),
+                    Ok(TokenKind::KwLet),
+                    Ok(TokenKind::Ident("me")),
+                    Ok(TokenKind::Colon),
+                    Ok(TokenKind::KwType),
+                    Ok(TokenKind::Ident("you")),
+                    Ok(TokenKind::Semicolon),
                 ],
             ),
         ];
 
         for (source, tokens) in to_test {
             let mut tokens = tokens.into_iter();
-            let mut lexer = Token::lexer(source);
+            let mut lexer = TokenKind::lexer(source);
 
             while let Some(token_lexed) = lexer.next() {
                 if let Some(token) = tokens.next() {
@@ -90,5 +120,11 @@ mod test {
                 panic!("Lexed token length is not enough!")
             }
         }
+    }
+
+    #[test]
+    fn iter_with_span() {
+        let mut lexer = lexer("");
+        lexer.next();
     }
 }

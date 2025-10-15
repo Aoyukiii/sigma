@@ -1,3 +1,8 @@
-mod core;
+use crate::repl::repl;
 
-fn main() {}
+mod core;
+mod repl;
+
+fn main() {
+    repl();
+}
