@@ -29,6 +29,8 @@ pub enum Token<'a> {
     Semicolon,
     #[token("let")]
     KwLet,
+    #[token("in")]
+    KwIn,
     #[token("Atom")]
     KwAtom,
     #[token("Type")]
