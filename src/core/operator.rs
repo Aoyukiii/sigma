@@ -13,7 +13,7 @@ pub enum Prefix {
 }
 
 impl Prefix {
-    fn binding_power(&self) -> u8 {
+    pub fn binding_power(&self) -> u8 {
         match self {
             Prefix::Plus => 0,
             Prefix::Neg => 0,
@@ -32,7 +32,7 @@ pub enum Infix {
 }
 
 impl Infix {
-    fn binding_power(&self) -> (u8, u8) {
+    pub fn binding_power(&self) -> (u8, u8) {
         match &self {
             Infix::Add => (0, 0),
             Infix::Sub => (0, 0),
@@ -50,7 +50,7 @@ pub enum Postfix {
 }
 
 impl Postfix {
-    fn binding_power(&self) -> u8 {
+    pub fn binding_power(&self) -> u8 {
         match self {
             Postfix::Index => 0,
         }
