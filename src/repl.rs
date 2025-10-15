@@ -22,6 +22,6 @@ pub fn repl() {
 fn run<'a>(src: &'a str) {
     let tok_stream = lexer(src);
     for tok in tok_stream {
-        println!("{:?}", tok)
+        println!("{}", tok)
     }
 }

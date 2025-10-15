@@ -1,4 +1,4 @@
-use std::iter::Peekable;
+use std::{fmt::Display, iter::Peekable};
 
 use logos::{Lexer as LogosLexer, Logos};
 
@@ -8,6 +8,12 @@ use crate::core::utils::Span;
 pub struct Token<'a> {
     pub kind: TokenKind<'a>,
     pub span: Span,
+}
+
+impl<'a> Display for Token<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Token({:?} @ {})", self.kind, self.span)
+    }
 }
 
 pub fn lexer<'a>(source: &'a str) -> TokenStream<'a> {
