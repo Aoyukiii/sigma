@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::core::{
     lexer::{Lexer, Token, TokenKind, TokenStream},
-    operator::OpKind,
+    operator::{Infix, OpKind},
     utils::Span,
 };
 
@@ -58,6 +58,16 @@ pub fn pratt_parse<'a>(tok_stream: &'a mut TokenStream<'a>) -> Result<Syntax, Ve
                 }]);
             }
         };
+
+        loop {
+            // [TODO] Do we need to distinguish all 3 kinds in the AST?
+            let op = (match kind {
+                TokenKind::Plus => Infix::Add,
+                _ => todo!(),
+            });
+            let power = op.binding_power();
+            todo!()
+        }
 
         todo!()
     } else {
