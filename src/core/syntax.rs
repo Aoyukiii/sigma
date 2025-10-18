@@ -37,7 +37,7 @@ pub enum SyntaxKind {
     AtomLiteral(String),
     Annotated(Box<Annotated>),
     Lambda(Box<Lambda>),
-    InfixOp(Box<InfixOp>),
+    InfixExpr(Box<InfixExpr>),
     Let(Box<Let>),
 }
 
@@ -47,7 +47,14 @@ pub enum ParseError {
     BadToken { tok: String },
 }
 
-pub fn pratt_parse<'a>(tok_stream: &'a mut TokenStream<'a>) -> Result<Syntax, Vec<ParseError>> {
+fn parse<'a>(tok_stream: &'a mut TokenStream<'a>) -> Result<Syntax, Vec<ParseError>> {
+    parse_bp(tok_stream, 0)
+}
+
+fn parse_bp<'a>(
+    tok_stream: &'a mut TokenStream<'a>,
+    min_bp: u8,
+) -> Result<Syntax, Vec<ParseError>> {
     if let Some(tok) = tok_stream.next() {
         let Token { kind, span } = tok;
         let lhs = match kind {
@@ -61,12 +68,32 @@ pub fn pratt_parse<'a>(tok_stream: &'a mut TokenStream<'a>) -> Result<Syntax, Ve
 
         loop {
             // [TODO] Do we need to distinguish all 3 kinds in the AST?
-            let op = match kind {
-                TokenKind::Plus => Infix::Add,
-                _ => todo!(),
-            };
-            let power = op.binding_power();
-            todo!()
+            if let Some(Token { kind, span }) = tok_stream.peek() {
+                let op = match kind {
+                    TokenKind::Plus => Infix::Add,
+                    TokenKind::Minus => Infix::Sub,
+                    _ => todo!(),
+                };
+                let (l_bp, r_bp) = op.binding_power();
+                if l_bp < min_bp {
+                    break;
+                }
+                {
+                    tok_stream.next();
+                }
+                let rhs = parse_bp(tok_stream, r_bp)?;
+
+                lhs = Syntax::new(
+                    SyntaxKind::InfixExpr(Box::new(InfixExpr {
+                        op,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                    })),
+                    span.clone(),
+                );
+            } else {
+                break;
+            }
         }
 
         todo!()
@@ -88,8 +115,8 @@ pub struct Lambda {
 }
 
 #[derive(Debug)]
-pub struct InfixOp {
-    op: OpKind,
+pub struct InfixExpr {
+    op: Infix,
     lhs: Box<Syntax>,
     rhs: Box<Syntax>,
 }

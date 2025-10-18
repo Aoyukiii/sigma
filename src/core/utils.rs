@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Display};
 
+#[derive(Clone, Copy)]
 pub struct Span {
     start: usize,
     end: usize,
