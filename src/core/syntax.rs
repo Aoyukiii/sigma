@@ -48,8 +48,8 @@ pub enum ParseError {
 }
 
 pub fn pratt_parse<'a>(tok_stream: &'a mut TokenStream<'a>) -> Result<Syntax, Vec<ParseError>> {
-    if let Some(next) = tok_stream.next() {
-        let Token { kind, span } = next;
+    if let Some(tok) = tok_stream.next() {
+        let Token { kind, span } = tok;
         let lhs = match kind {
             TokenKind::Atom(atom) => Syntax::new(SyntaxKind::AtomLiteral(atom.to_string()), span),
             tok => {
@@ -61,10 +61,10 @@ pub fn pratt_parse<'a>(tok_stream: &'a mut TokenStream<'a>) -> Result<Syntax, Ve
 
         loop {
             // [TODO] Do we need to distinguish all 3 kinds in the AST?
-            let op = (match kind {
+            let op = match kind {
                 TokenKind::Plus => Infix::Add,
                 _ => todo!(),
-            });
+            };
             let power = op.binding_power();
             todo!()
         }
