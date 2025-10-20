@@ -1,7 +1,12 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+};
+
+use colored::Colorize;
 
 use crate::core::{
-    lexer::{Lexer, Token, TokenKind},
+    lexer::{LexError, Lexer, Token, TokenKind},
     operator::Infix,
     utils::Span,
 };
@@ -16,6 +21,12 @@ impl Deref for Syntax {
     type Target = SyntaxKind;
     fn deref(&self) -> &Self::Target {
         &self.kind
+    }
+}
+
+impl Display for Syntax {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} @ {}", self.kind, self.span)
     }
 }
 
@@ -41,6 +52,8 @@ impl DerefMut for Syntax {
 #[derive(Debug)]
 pub enum SyntaxKind {
     Ident(String),
+    Atom,
+    Type,
     AtomLiteral(String),
     Annotated(Box<Annotated>),
     Lambda(Box<Lambda>),
@@ -49,13 +62,29 @@ pub enum SyntaxKind {
     Error,
 }
 
-#[derive(Debug)]
-pub enum ParseError {
-    ExpectExpr,
-    BadToken { tok_str: String },
+impl Display for SyntaxKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ident(it) => write!(f, "{}", it.to_string().magenta()),
+            Self::Atom => write!(f, "{}", "Atom".yellow()),
+            Self::Type => write!(f, "{}", "Type".yellow()),
+            Self::AtomLiteral(it) => write!(f, "{}", it.yellow()),
+            Self::Annotated(it) => write!(f, "({}: {})", it.expr, it.type_expr),
+            Self::Lambda(it) => write!(f, "(λ {}. {})", it.param, it.body),
+            Self::InfixExpr(it) => write!(f, "\"{}\"({}, {})", it.op, it.lhs, it.rhs),
+            Self::Let(it) => write!(f, "({} := {} in {})", it.var, it.value, it.body),
+            Self::Error => write!(f, "{}", "Error".red()),
+        }
+    }
 }
 
-struct Parser<'a> {
+#[derive(Debug)]
+pub enum ParseError {
+    BadToken { tok_str: String },
+    LexError(LexError),
+}
+
+pub struct Parser<'a> {
     lexer: Lexer<'a>,
     errs: Vec<ParseError>,
 }
@@ -68,35 +97,50 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse(&mut self) -> Syntax {
-        self.parse_bp(0)
+    pub fn parse(mut self) -> (Syntax, Vec<ParseError>) {
+        (self.parse_bp(0), self.errs)
     }
 
     fn parse_bp(&mut self, min_bp: u8) -> Syntax {
         let Token { kind: next, span } = self.lexer.next();
         let mut lhs = match next {
-            TokenKind::Atom(it) => Syntax::new(SyntaxKind::AtomLiteral(it.to_string()), span),
-            t => {
+            Ok(TokenKind::Atom(it)) => Syntax::new(SyntaxKind::AtomLiteral(it.to_string()), span),
+            Ok(TokenKind::Ident(it)) => Syntax::new(SyntaxKind::Ident(it.to_string()), span),
+            Ok(TokenKind::KwAtom) => Syntax::new(SyntaxKind::Atom, span),
+            Ok(TokenKind::KwType) => Syntax::new(SyntaxKind::Type, span),
+            Ok(tok) => {
                 self.errs.push(ParseError::BadToken {
-                    tok_str: format!("{}", t),
+                    tok_str: tok.to_string(),
                 });
                 Syntax::new_err(span)
+            }
+            Err(_) => {
+                let (e, span) = self.lexer.next().unwrap_error();
+                self.errs.push(ParseError::LexError(e));
+                return Syntax::new_err(span);
             }
         };
 
         loop {
             let peek = self.lexer.peek();
             let op = match peek {
-                TokenKind::EOF => break,
-                TokenKind::Plus => Infix::Add,
-                TokenKind::Minus => Infix::Sub,
-                // More branches here...
-                t => {
+                Ok(TokenKind::EOF) => break,
+                Ok(TokenKind::Plus) => Infix::Add,
+                Ok(TokenKind::Minus) => Infix::Sub,
+                Ok(TokenKind::Star) => Infix::Mul,
+                Ok(TokenKind::Slash) => Infix::Div,
+                Ok(TokenKind::Dot) => Infix::Dot,
+                Ok(tok) => {
                     self.errs.push(ParseError::BadToken {
-                        tok_str: format!("{}", t),
+                        tok_str: tok.to_string(),
                     });
                     // Comsume this bad token and return
                     return Syntax::new_err(self.lexer.next().span);
+                }
+                Err(_) => {
+                    let (e, span) = self.lexer.next().unwrap_error();
+                    self.errs.push(ParseError::LexError(e));
+                    return Syntax::new_err(span);
                 }
             };
 

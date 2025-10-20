@@ -3,6 +3,7 @@ use std::io;
 use std::io::Write;
 
 use crate::core::lexer::Lexer;
+use crate::core::syntax::Parser;
 
 pub fn repl() {
     loop {
@@ -26,6 +27,10 @@ fn run<'a>(src: &'a str) {
         if tok.is_eof() {
             break;
         }
-        println!("{}", tok)
+        println!("{}", tok);
     }
+    let parser = Parser::new(src);
+    let (syntax, errs) = parser.parse();
+    println!("{}", syntax);
+    println!("{:?}", errs);
 }
