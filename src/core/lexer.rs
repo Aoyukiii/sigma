@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    ops::{Deref, Range},
-};
+use std::{fmt::Display, ops::Range};
 
 use logos::{Lexer as LogosLexer, Logos, SpannedIter};
 
@@ -9,14 +6,23 @@ use crate::core::utils::Span;
 
 #[derive(Debug)]
 pub struct Token<'a> {
-    pub kind: TokenKind<'a>,
+    pub kind: Result<TokenKind<'a>, LexError>,
     pub span: Span,
 }
 
-impl<'a> Deref for Token<'a> {
-    type Target = TokenKind<'a>;
-    fn deref(&self) -> &Self::Target {
-        &self.kind
+impl<'a> Token<'a> {
+    pub fn is_eof(&self) -> bool {
+        matches!(&self.kind, Ok(kind) if kind.is_eof())
+    }
+
+    /// Get a tuple of [`TokenKind`] and [`Span`], and may panic.
+    pub fn unwrap_kind(self) -> (TokenKind<'a>, Span) {
+        (self.kind.unwrap(), self.span)
+    }
+
+    /// Get a tuple of [`LexError`] and [`Span`], and may panic.
+    pub fn unwrap_error(self) -> (LexError, Span) {
+        (self.kind.unwrap_err(), self.span)
     }
 }
 
@@ -26,10 +32,10 @@ impl<'a> Display for Token<'a> {
     }
 }
 
-impl<'a> From<(Result<TokenKind<'a>, ()>, Range<usize>)> for Token<'a> {
-    fn from((tok, span): (Result<TokenKind<'a>, ()>, Range<usize>)) -> Self {
+impl<'a> From<(Result<TokenKind<'a>, LexError>, Range<usize>)> for Token<'a> {
+    fn from((kind, span): (Result<TokenKind<'a>, LexError>, Range<usize>)) -> Self {
         Self {
-            kind: tok.unwrap_or(TokenKind::Error),
+            kind,
             span: (span.start, span.end).into(),
         }
     }
@@ -68,7 +74,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Peek a token
-    pub fn peek(&self) -> &TokenKind<'a> {
+    pub fn peek(&self) -> &Result<TokenKind<'a>, LexError> {
         &self.current_tok.kind
     }
 }
@@ -77,8 +83,27 @@ fn slice_str_callback<'a>(lex: &mut LogosLexer<'a, TokenKind<'a>>) -> &'a str {
     lex.slice()
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum LexError {
+    BadToken(String),
+    Unknown,
+}
+
+impl Default for LexError {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
+impl LexError {
+    fn from_lexer<'a>(lex: &mut LogosLexer<'a, TokenKind<'a>>) -> Self {
+        Self::BadToken(lex.slice().to_string())
+    }
+}
+
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip(r"[ \r\t\n\f]+"))]
+#[logos(error(LexError))]
 pub enum TokenKind<'a> {
     #[token("(")]
     LParen,
@@ -120,7 +145,6 @@ pub enum TokenKind<'a> {
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", slice_str_callback)]
     Ident(&'a str),
 
-    Error,
     EOF,
 }
 
@@ -131,10 +155,6 @@ impl<'a> Display for TokenKind<'a> {
 }
 
 impl<'a> TokenKind<'a> {
-    pub fn is_err(&self) -> bool {
-        matches!(self, TokenKind::Error)
-    }
-
     pub fn is_eof(&self) -> bool {
         matches!(self, TokenKind::EOF)
     }
