@@ -1,8 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::core::{
-    lexer::{Lexer, Token, TokenKind, TokenStream},
-    operator::{Infix, OpKind},
+    lexer::{Lexer, Token, TokenKind},
+    operator::Infix,
     utils::Span,
 };
 
@@ -23,6 +23,13 @@ impl Syntax {
     fn new(kind: SyntaxKind, span: Span) -> Self {
         Self { kind, span }
     }
+
+    fn new_err(span: Span) -> Self {
+        Self {
+            kind: SyntaxKind::Error,
+            span,
+        }
+    }
 }
 
 impl DerefMut for Syntax {
@@ -39,66 +46,78 @@ pub enum SyntaxKind {
     Lambda(Box<Lambda>),
     InfixExpr(Box<InfixExpr>),
     Let(Box<Let>),
+    Error,
 }
 
 #[derive(Debug)]
 pub enum ParseError {
     ExpectExpr,
-    BadToken { tok: String },
+    BadToken { tok_str: String },
 }
 
-fn parse<'a>(tok_stream: &'a mut TokenStream<'a>) -> Result<Syntax, Vec<ParseError>> {
-    parse_bp(tok_stream, 0)
+struct Parser<'a> {
+    lexer: Lexer<'a>,
+    errs: Vec<ParseError>,
 }
 
-fn parse_bp<'a>(
-    tok_stream: &'a mut TokenStream<'a>,
-    min_bp: u8,
-) -> Result<Syntax, Vec<ParseError>> {
-    if let Some(tok) = tok_stream.next() {
-        let Token { kind, span } = tok;
-        let lhs = match kind {
-            TokenKind::Atom(atom) => Syntax::new(SyntaxKind::AtomLiteral(atom.to_string()), span),
-            tok => {
-                return Err(vec![ParseError::BadToken {
-                    tok: format!("{}", tok),
-                }]);
+impl<'a> Parser<'a> {
+    pub fn new(src: &'a str) -> Self {
+        Self {
+            lexer: Lexer::new(src),
+            errs: Vec::new(),
+        }
+    }
+
+    fn parse(&mut self) -> Syntax {
+        self.parse_bp(0)
+    }
+
+    fn parse_bp(&mut self, min_bp: u8) -> Syntax {
+        let Token { kind: next, span } = self.lexer.next();
+        let mut lhs = match next {
+            TokenKind::Atom(it) => Syntax::new(SyntaxKind::AtomLiteral(it.to_string()), span),
+            t => {
+                self.errs.push(ParseError::BadToken {
+                    tok_str: format!("{}", t),
+                });
+                Syntax::new_err(span)
             }
         };
 
         loop {
-            // [TODO] Do we need to distinguish all 3 kinds in the AST?
-            if let Some(Token { kind, span }) = tok_stream.peek() {
-                let op = match kind {
-                    TokenKind::Plus => Infix::Add,
-                    TokenKind::Minus => Infix::Sub,
-                    _ => todo!(),
-                };
-                let (l_bp, r_bp) = op.binding_power();
-                if l_bp < min_bp {
-                    break;
+            let peek = self.lexer.peek();
+            let op = match peek {
+                TokenKind::EOF => break,
+                TokenKind::Plus => Infix::Add,
+                TokenKind::Minus => Infix::Sub,
+                // More branches here...
+                t => {
+                    self.errs.push(ParseError::BadToken {
+                        tok_str: format!("{}", t),
+                    });
+                    // Comsume this bad token and return
+                    return Syntax::new_err(self.lexer.next().span);
                 }
-                {
-                    tok_stream.next();
-                }
-                let rhs = parse_bp(tok_stream, r_bp)?;
+            };
 
-                lhs = Syntax::new(
-                    SyntaxKind::InfixExpr(Box::new(InfixExpr {
-                        op,
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                    })),
-                    span.clone(),
-                );
-            } else {
+            let (l_bp, r_bp) = op.binding_power();
+            if l_bp < min_bp {
                 break;
             }
+            let Token { kind: _, span } = self.lexer.next();
+            let rhs = self.parse_bp(r_bp);
+
+            lhs = Syntax::new(
+                SyntaxKind::InfixExpr(Box::new(InfixExpr {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                })),
+                span,
+            );
         }
 
-        todo!()
-    } else {
-        Err(vec![ParseError::ExpectExpr])
+        lhs
     }
 }
 

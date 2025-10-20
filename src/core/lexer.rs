@@ -1,6 +1,9 @@
-use std::{fmt::Display, iter::Peekable};
+use std::{
+    fmt::Display,
+    ops::{Deref, Range},
+};
 
-use logos::{Lexer as LogosLexer, Logos};
+use logos::{Lexer as LogosLexer, Logos, SpannedIter};
 
 use crate::core::utils::Span;
 
@@ -10,29 +13,67 @@ pub struct Token<'a> {
     pub span: Span,
 }
 
+impl<'a> Deref for Token<'a> {
+    type Target = TokenKind<'a>;
+    fn deref(&self) -> &Self::Target {
+        &self.kind
+    }
+}
+
 impl<'a> Display for Token<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Token({:?} @ {})", self.kind, self.span)
     }
 }
 
-pub fn lexer<'a>(source: &'a str) -> TokenStream<'a> {
-    let iter = TokenKind::lexer(source).spanned().map(|(tok, span)| Token {
-        kind: if let Ok(tok) = tok {
-            tok
-        } else {
-            TokenKind::Error
-        },
-        span: (span.start, span.end).into(),
-    });
-
-    let boxed: Box<dyn Iterator<Item = Token<'a>>> = Box::new(iter);
-    boxed.peekable()
+impl<'a> From<(Result<TokenKind<'a>, ()>, Range<usize>)> for Token<'a> {
+    fn from((tok, span): (Result<TokenKind<'a>, ()>, Range<usize>)) -> Self {
+        Self {
+            kind: tok.unwrap_or(TokenKind::Error),
+            span: (span.start, span.end).into(),
+        }
+    }
 }
 
-pub type TokenStream<'a> = Peekable<Box<dyn Iterator<Item = Token<'a>> + 'a>>;
+pub struct Lexer<'a> {
+    tok_stream: SpannedIter<'a, TokenKind<'a>>,
+    current_tok: Token<'a>,
+    src: &'a str,
+}
 
-fn slice_str_callback<'a>(lex: &mut Lexer<'a>) -> &'a str {
+impl<'a> Lexer<'a> {
+    pub fn new(src: &'a str) -> Self {
+        let mut tok_stream = TokenKind::lexer(src).spanned();
+        let current_tok = tok_stream
+            .next()
+            .unwrap_or((Ok(TokenKind::EOF), src.len()..src.len()))
+            .into();
+        Self {
+            src,
+            tok_stream,
+            current_tok,
+        }
+    }
+
+    /// Consume a token
+    pub fn next(&mut self) -> Token<'a> {
+        let tok = std::mem::replace(
+            &mut self.current_tok,
+            self.tok_stream
+                .next()
+                .unwrap_or((Ok(TokenKind::EOF), self.src.len()..self.src.len()))
+                .into(),
+        );
+        tok
+    }
+
+    /// Peek a token
+    pub fn peek(&self) -> &TokenKind<'a> {
+        &self.current_tok.kind
+    }
+}
+
+fn slice_str_callback<'a>(lex: &mut LogosLexer<'a, TokenKind<'a>>) -> &'a str {
     lex.slice()
 }
 
@@ -80,6 +121,7 @@ pub enum TokenKind<'a> {
     Ident(&'a str),
 
     Error,
+    EOF,
 }
 
 impl<'a> Display for TokenKind<'a> {
@@ -88,13 +130,21 @@ impl<'a> Display for TokenKind<'a> {
     }
 }
 
-pub type Lexer<'a> = LogosLexer<'a, TokenKind<'a>>;
+impl<'a> TokenKind<'a> {
+    pub fn is_err(&self) -> bool {
+        matches!(self, TokenKind::Error)
+    }
+
+    pub fn is_eof(&self) -> bool {
+        matches!(self, TokenKind::EOF)
+    }
+}
 
 #[cfg(test)]
 mod test {
     use logos::Logos;
 
-    use crate::core::lexer::{Token, TokenKind, lexer};
+    use crate::core::lexer::{Lexer, TokenKind};
 
     #[test]
     fn lexing() {
@@ -142,7 +192,7 @@ mod test {
 
     #[test]
     fn iter_with_span() {
-        let mut lexer = lexer("");
+        let mut lexer = Lexer::new("");
         lexer.next();
     }
 }

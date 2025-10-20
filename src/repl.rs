@@ -2,7 +2,7 @@ use colored::Colorize;
 use std::io;
 use std::io::Write;
 
-use crate::core::lexer::lexer;
+use crate::core::lexer::Lexer;
 
 pub fn repl() {
     loop {
@@ -20,8 +20,12 @@ pub fn repl() {
 }
 
 fn run<'a>(src: &'a str) {
-    let tok_stream = lexer(src);
-    for tok in tok_stream {
+    let mut lexer = Lexer::new(src);
+    loop {
+        let tok = lexer.next();
+        if tok.is_eof() {
+            break;
+        }
         println!("{}", tok)
     }
 }
