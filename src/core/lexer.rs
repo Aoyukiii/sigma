@@ -36,7 +36,7 @@ impl<'a> From<(Result<TokenKind<'a>, LexError>, Range<usize>)> for Token<'a> {
     fn from((kind, span): (Result<TokenKind<'a>, LexError>, Range<usize>)) -> Self {
         Self {
             kind,
-            span: (span.start, span.end).into(),
+            span: span.into(),
         }
     }
 }
@@ -85,7 +85,7 @@ fn slice_str_callback<'a>(lex: &mut LogosLexer<'a, TokenKind<'a>>) -> &'a str {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LexError {
-    BadToken(String),
+    BadToken { tok_str: String, span: Span },
     Unknown,
 }
 
@@ -97,13 +97,16 @@ impl Default for LexError {
 
 impl LexError {
     fn from_lexer<'a>(lex: &mut LogosLexer<'a, TokenKind<'a>>) -> Self {
-        Self::BadToken(lex.slice().to_string())
+        Self::BadToken {
+            tok_str: lex.slice().to_string(),
+            span: lex.span().into(),
+        }
     }
 }
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip(r"[ \r\t\n\f]+"))]
-#[logos(error(LexError))]
+#[logos(error(LexError, LexError::from_lexer))]
 pub enum TokenKind<'a> {
     #[token("(")]
     LParen,
