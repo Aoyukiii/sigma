@@ -100,18 +100,3 @@ impl Display for Infix {
         }
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Postfix {
-    // Call,
-    Index,
-}
-
-impl Postfix {
-    #[rustfmt::skip]
-    pub const fn binding_power(&self) -> u8 {
-        match self {
-            Postfix::Index => Precedence::Application.binding_power(Associativity::None).0,
-        }
-    }
-}
