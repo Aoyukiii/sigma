@@ -80,7 +80,7 @@ impl Display for SyntaxKind {
 
 #[derive(Debug)]
 pub enum ParseError {
-    BadToken { tok_str: String },
+    UnexpectedToken { tok_str: String, span: Span },
     LexError(LexError),
 }
 
@@ -109,15 +109,15 @@ impl<'a> Parser<'a> {
             Ok(TokenKind::KwAtom) => Syntax::new(SyntaxKind::Atom, span),
             Ok(TokenKind::KwType) => Syntax::new(SyntaxKind::Type, span),
             Ok(tok) => {
-                self.errs.push(ParseError::BadToken {
+                self.errs.push(ParseError::UnexpectedToken {
                     tok_str: tok.to_string(),
+                    span,
                 });
                 Syntax::new_err(span)
             }
-            Err(_) => {
-                let (e, span) = self.lexer.next().unwrap_error();
+            Err(e) => {
                 self.errs.push(ParseError::LexError(e));
-                return Syntax::new_err(span);
+                Syntax::new_err(span)
             }
         };
 
@@ -130,17 +130,19 @@ impl<'a> Parser<'a> {
                 Ok(TokenKind::Star) => Infix::Mul,
                 Ok(TokenKind::Slash) => Infix::Div,
                 Ok(TokenKind::Dot) => Infix::Dot,
-                Ok(tok) => {
-                    self.errs.push(ParseError::BadToken {
-                        tok_str: tok.to_string(),
-                    });
+                Ok(_) => {
+                    let (tok, span) = self.lexer.next().unwrap_kind();
                     // Comsume this bad token and return
-                    return Syntax::new_err(self.lexer.next().span);
+                    self.errs.push(ParseError::UnexpectedToken {
+                        tok_str: tok.to_string(),
+                        span,
+                    });
+                    continue;
                 }
                 Err(_) => {
-                    let (e, span) = self.lexer.next().unwrap_error();
+                    let e = self.lexer.next().kind.unwrap_err();
                     self.errs.push(ParseError::LexError(e));
-                    return Syntax::new_err(span);
+                    continue;
                 }
             };
 
