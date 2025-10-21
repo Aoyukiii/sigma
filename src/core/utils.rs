@@ -51,10 +51,10 @@ impl Span {
         }
     }
 
-    // /// Convert into a cursor position begins with line 0 and col 0.
-    // pub fn to_cursor(self, src: &str) -> (u8, u8) {
-
-    // }
+    /// Convert into two cursors.
+    pub fn to_cursors(self, src: &str) -> (Cursor, Cursor) {
+        (src.to_cursor(self.start), src.to_cursor(self.end))
+    }
 }
 
 impl Default for Span {
