@@ -2,7 +2,6 @@ use colored::Colorize;
 use std::io;
 use std::io::Write;
 
-use crate::core::lexer::Lexer;
 use crate::core::syntax::Parser;
 
 pub fn repl() {
@@ -21,18 +20,10 @@ pub fn repl() {
 }
 
 fn run<'a>(src: &'a str) {
-    // let mut lexer = Lexer::new(src);
-    // loop {
-    //     let tok = lexer.next();
-    //     if tok.is_eof() {
-    //         break;
-    //     }
-    //     println!("{}", tok);
-    // }
     let parser = Parser::new(src);
     let (syntax, errs) = parser.parse();
     println!("{}", syntax);
     for (i, err) in errs.iter().enumerate() {
-        println!("[{}] {:?}", i + 1, err)
+        println!("[{}] {}", i + 1, err)
     }
 }
