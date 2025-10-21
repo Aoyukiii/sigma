@@ -72,6 +72,7 @@ pub enum Infix {
     Dot,
     Colon,
     Pow,
+    Apply,
 }
 
 impl Infix {
@@ -83,6 +84,7 @@ impl Infix {
             Infix::Dot => Precedence::Projection.binding_power(Associativity::Left),
             Infix::Colon => Precedence::TypeAnnotation.binding_power(Associativity::None),
             Infix::Pow => Precedence::Exponential.binding_power(Associativity::Right),
+            Infix::Apply => Precedence::Application.binding_power(Associativity::Left),
         }
     }
 }
@@ -97,6 +99,7 @@ impl Display for Infix {
             Self::Dot => write!(f, "."),
             Self::Colon => write!(f, ":"),
             Self::Pow => write!(f, "**"),
+            Self::Apply => write!(f, "Apply"),
         }
     }
 }

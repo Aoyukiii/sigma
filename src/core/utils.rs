@@ -5,10 +5,62 @@ use std::{
 
 use colored::Colorize;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Cursor {
+    line: usize,
+    col: usize,
+}
+
+pub trait ToCursor {
+    fn to_cursor(self, pos: usize) -> Cursor;
+}
+
+impl ToCursor for &str {
+    fn to_cursor(self, pos: usize) -> Cursor {
+        let mut line = 0;
+        let mut col = 0;
+
+        for (i, ch) in self.char_indices() {
+            if i >= pos {
+                break;
+            }
+
+            if ch == '\n' {
+                line += 1;
+                col = 0;
+            } else {
+                col += 1;
+            }
+        }
+
+        Cursor { line, col }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Span {
     start: usize,
     end: usize,
+}
+
+impl Span {
+    pub fn merge(self, other: Self) -> Self {
+        Self {
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
+        }
+    }
+
+    // /// Convert into a cursor position begins with line 0 and col 0.
+    // pub fn to_cursor(self, src: &str) -> (u8, u8) {
+
+    // }
+}
+
+impl Default for Span {
+    fn default() -> Self {
+        Self { start: 0, end: 0 }
+    }
 }
 
 impl From<(usize, usize)> for Span {
@@ -66,20 +118,29 @@ impl<'a> PrettyContext<'a> {
         write!(writer, "{}", self.indent.repeat(self.level))
     }
 
-    pub fn write_field(&mut self, writer: &mut impl Write, key: &str, value: &impl PrettyPrint) -> std::fmt::Result {
+    pub fn write_field(
+        &mut self,
+        writer: &mut impl Write,
+        key: &str,
+        value: &impl PrettyPrint,
+    ) -> std::fmt::Result {
         write!(writer, "{}: ", key)?;
         value.pretty_print(self, writer)?;
         write!(writer, ",")
     }
 
-    pub fn write_field_ln(&mut self, writer: &mut impl Write, key: &str, value: &impl PrettyPrint) -> std::fmt::Result {
+    pub fn write_field_ln(
+        &mut self,
+        writer: &mut impl Write,
+        key: &str,
+        value: &impl PrettyPrint,
+    ) -> std::fmt::Result {
         let mut ctx = self.indented();
         ctx.write_indent(writer)?;
         write!(writer, "{}: ", key)?;
         value.pretty_print(&mut ctx, writer)?;
         writeln!(writer, ",")
     }
-    
 }
 
 pub trait PrettyPrint {

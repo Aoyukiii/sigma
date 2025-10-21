@@ -68,6 +68,7 @@ pub enum SyntaxKind {
     AtomLiteral(String),
     Annotated(Box<Annotated>),
     Lambda(Box<Lambda>),
+    Application(Box<Application>),
     PrefixExpr(Box<PrefixExpr>),
     InfixExpr(Box<InfixExpr>),
     Let(Box<Let>),
@@ -92,6 +93,13 @@ impl PrettyPrint for SyntaxKind {
                 ctx.write_indent(w)?;
                 write!(w, ")")
             }
+            Self::Application(it) => {
+                writeln!(w, "Applicaion(")?;
+                ctx.write_field_ln(w, "func", it.func.as_ref())?;
+                ctx.write_field_ln(w, "arg", it.arg.as_ref())?;
+                ctx.write_indent(w)?;
+                write!(w, ")")
+            }
             Self::Lambda(it) => {
                 writeln!(w, "Lambda(")?;
                 ctx.write_field_ln(w, "param", it.param.as_ref())?;
@@ -100,13 +108,13 @@ impl PrettyPrint for SyntaxKind {
                 write!(w, ")")
             }
             Self::PrefixExpr(it) => {
-                writeln!(w, "\"{}\"(", it.op)?;
+                writeln!(w, "({}) @ {} (", it.op.to_string().magenta(), it.op_span)?;
                 ctx.write_field_ln(w, "rhs", it.rhs.as_ref())?;
                 ctx.write_indent(w)?;
                 write!(w, ")")
             }
             Self::InfixExpr(it) => {
-                writeln!(w, "\"{}\"(", it.op)?;
+                writeln!(w, "({}) @ {} (", it.op.to_string().magenta(), it.op_span)?;
                 ctx.write_field_ln(w, "lhs", it.lhs.as_ref())?;
                 ctx.write_field_ln(w, "rhs", it.rhs.as_ref())?;
                 ctx.write_indent(w)?;
@@ -125,13 +133,50 @@ impl Display for SyntaxKind {
 }
 
 #[derive(Debug)]
-pub enum ParseError {
-    UnexpectedToken { tok_str: String, span: Span },
-    UnclosedLParen { span: Span },
-    UnclosedRParen { span: Span },
-    ExpectedExpr { span: Span },
-    UnexpectedExpr { span: Span },
-    LexError(LexError),
+pub struct ParseError {
+    kind: ParseErrorKind,
+    span: Span,
+}
+
+impl ParseError {
+    pub fn new(kind: ParseErrorKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+}
+
+impl From<(ParseErrorKind, Span)> for ParseError {
+    fn from((kind, span): (ParseErrorKind, Span)) -> Self {
+        Self::new(kind, span)
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseErrorKind {
+    UnexpectedToken { tok_str: String },
+    BadToken { tok_str: String },
+    UnclosedLParen,
+    UnclosedRParen,
+    ExpectedExpr,
+    UnexpectedExpr,
+    Unknown,
+}
+
+impl From<LexError> for ParseError {
+    fn from(lex_err: LexError) -> Self {
+        match lex_err {
+            LexError::BadToken { tok_str, span } => {
+                Self::new(ParseErrorKind::BadToken { tok_str }, span)
+            }
+            LexError::Unknown => Self::new(ParseErrorKind::Unknown, Span::default()),
+        }
+    }
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)?;
+        Ok(())
+    }
 }
 
 pub struct Parser<'a> {
@@ -155,7 +200,8 @@ impl<'a> Parser<'a> {
         let mut expr = self.expr_bp(0);
         if self.lexer.peek_is(TokenKind::RParen) {
             let span = self.lexer.next().span;
-            self.errs.push(ParseError::UnclosedRParen { span });
+            self.errs
+                .push((ParseErrorKind::UnclosedRParen, span).into());
             expr = self.expr_bp_with_lhs(0, expr);
         }
         expr
@@ -164,7 +210,7 @@ impl<'a> Parser<'a> {
     fn expr_bp(&mut self, min_bp: u8) -> Syntax {
         if self.lexer.peek_is(TokenKind::RParen) {
             let span = self.lexer.peek().span;
-            self.errs.push(ParseError::ExpectedExpr { span });
+            self.errs.push((ParseErrorKind::ExpectedExpr, span).into());
             return Syntax::new_err(span);
         }
 
@@ -182,10 +228,13 @@ impl<'a> Parser<'a> {
                     _ => unreachable!(),
                 };
                 let r_bp = op.binding_power();
+                let op_span = span;
                 let rhs = self.expr_bp(r_bp);
+                let span = op_span.merge(rhs.span);
                 Syntax::new(
                     SyntaxKind::PrefixExpr(Box::new(PrefixExpr {
                         op,
+                        op_span,
                         rhs: Box::new(rhs),
                     })),
                     span,
@@ -194,19 +243,25 @@ impl<'a> Parser<'a> {
             Ok(TokenKind::LParen) => {
                 let syntax = self.expr_bp(0);
                 if !self.lexer.expect(TokenKind::RParen) {
-                    self.errs.push(ParseError::UnclosedLParen { span });
+                    self.errs
+                        .push((ParseErrorKind::UnclosedLParen, span).into());
                 }
                 syntax
             }
             Ok(tok) => {
-                self.errs.push(ParseError::UnexpectedToken {
-                    tok_str: tok.to_string(),
-                    span,
-                });
+                self.errs.push(
+                    (
+                        ParseErrorKind::UnexpectedToken {
+                            tok_str: tok.to_string(),
+                        },
+                        span,
+                    )
+                        .into(),
+                );
                 Syntax::new_err(span)
             }
             Err(e) => {
-                self.errs.push(ParseError::LexError(e));
+                self.errs.push(e.into());
                 Syntax::new_err(span)
             }
         };
@@ -227,18 +282,28 @@ impl<'a> Parser<'a> {
                 Ok(TokenKind::Dot) => Infix::Dot,
                 Ok(TokenKind::Colon) => Infix::Colon,
                 Ok(TokenKind::DStar) => Infix::Pow,
+                Ok(TokenKind::Atom(_))
+                | Ok(TokenKind::Ident(_))
+                | Ok(TokenKind::LParen)
+                | Ok(TokenKind::KwAtom)
+                | Ok(TokenKind::KwType) => Infix::Apply,
                 Ok(_) => {
                     let (tok, span) = self.lexer.next().unwrap_kind();
                     // Comsume this bad token and return
-                    self.errs.push(ParseError::UnexpectedToken {
-                        tok_str: tok.to_string(),
-                        span,
-                    });
+                    self.errs.push(
+                        (
+                            ParseErrorKind::UnexpectedToken {
+                                tok_str: tok.to_string(),
+                            },
+                            span,
+                        )
+                            .into(),
+                    );
                     continue;
                 }
                 Err(_) => {
                     let e = self.lexer.next().kind.unwrap_err();
-                    self.errs.push(ParseError::LexError(e));
+                    self.errs.push(e.into());
                     continue;
                 }
             };
@@ -247,8 +312,23 @@ impl<'a> Parser<'a> {
             if l_bp < min_bp {
                 break;
             }
-            let Token { kind: _, span } = self.lexer.next();
+
+            if op == Infix::Apply {
+                let rhs = self.expr_bp(r_bp);
+                let span = lhs.span.merge(rhs.span);
+                lhs = Syntax::new(
+                    SyntaxKind::Application(Box::new(Application {
+                        func: Box::new(lhs),
+                        arg: Box::new(rhs),
+                    })),
+                    span,
+                );
+                continue;
+            }
+
+            let op_span = self.lexer.next().span;
             let rhs = self.expr_bp(r_bp);
+            let span = lhs.span.merge(rhs.span);
 
             lhs = Syntax::new(
                 if op == Infix::Colon {
@@ -259,6 +339,7 @@ impl<'a> Parser<'a> {
                 } else {
                     SyntaxKind::InfixExpr(Box::new(InfixExpr {
                         op,
+                        op_span,
                         lhs: Box::new(lhs),
                         rhs: Box::new(rhs),
                     }))
@@ -284,14 +365,22 @@ pub struct Lambda {
 }
 
 #[derive(Debug)]
+pub struct Application {
+    func: Box<Syntax>,
+    arg: Box<Syntax>,
+}
+
+#[derive(Debug)]
 pub struct PrefixExpr {
     op: Prefix,
+    op_span: Span,
     rhs: Box<Syntax>,
 }
 
 #[derive(Debug)]
 pub struct InfixExpr {
     op: Infix,
+    op_span: Span,
     lhs: Box<Syntax>,
     rhs: Box<Syntax>,
 }
