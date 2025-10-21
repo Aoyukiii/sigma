@@ -4,7 +4,7 @@ use logos::{Lexer as LogosLexer, Logos, SpannedIter};
 
 use crate::core::utils::Span;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Token<'a> {
     pub kind: Result<TokenKind<'a>, LexError>,
     pub span: Span,
@@ -73,9 +73,26 @@ impl<'a> Lexer<'a> {
         tok
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.peek_is(TokenKind::EOF)
+    }
+
     /// Peek a token
-    pub fn peek(&self) -> &Result<TokenKind<'a>, LexError> {
-        &self.current_tok.kind
+    pub const fn peek(&self) -> &Token<'a> {
+        &self.current_tok
+    }
+
+    /// Peek a token and check if it is expected
+    pub fn peek_is(&self, expected: TokenKind) -> bool {
+        matches!(&self.peek().kind, Ok(tok) if *tok == expected)
+    }
+
+    pub fn expect(&mut self, expected: TokenKind) -> bool {
+        let is_expected = self.peek_is(expected);
+        if is_expected {
+            self.next();
+        }
+        is_expected
     }
 }
 
@@ -126,6 +143,10 @@ pub enum TokenKind<'a> {
     Star,
     #[token("/")]
     Slash,
+    #[token("**")]
+    DStar,
+    #[token("!")]
+    Not,
     #[token("->")]
     Arrow,
     #[token("=>")]

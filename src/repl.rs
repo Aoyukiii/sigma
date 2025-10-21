@@ -21,16 +21,18 @@ pub fn repl() {
 }
 
 fn run<'a>(src: &'a str) {
-    let mut lexer = Lexer::new(src);
-    loop {
-        let tok = lexer.next();
-        if tok.is_eof() {
-            break;
-        }
-        println!("{}", tok);
-    }
+    // let mut lexer = Lexer::new(src);
+    // loop {
+    //     let tok = lexer.next();
+    //     if tok.is_eof() {
+    //         break;
+    //     }
+    //     println!("{}", tok);
+    // }
     let parser = Parser::new(src);
     let (syntax, errs) = parser.parse();
     println!("{}", syntax);
-    println!("{:?}", errs);
+    for (i, err) in errs.iter().enumerate() {
+        println!("[{}] {:?}", i + 1, err)
+    }
 }

@@ -1,5 +1,42 @@
 use std::fmt::Display;
 
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
+pub enum Precedence {
+    // Lowest precedence here
+    Comma,          // ,
+    Assignment,     // := =
+    TypeAnnotation, // :
+    Quantification, // ∀ ∃ λ
+    Implication,    // → ⇒
+    Disjunction,    // || ∨
+    Conjunction,    // && ∧
+    Equality,       // == ≡ ≠
+    Relational,     // < ≤ > ≥
+    Shift,          // << >>
+    Additive,       // + -
+    Multiplicative, // * / %
+    Unary,          // - ! ~
+    Exponential,    // **
+    Projection,     // .
+    Application,    // fn appl
+} // Highest precedence here
+
+pub enum Associativity {
+    Left,
+    Right,
+    None,
+}
+
+impl Precedence {
+    const fn binding_power(self, assoc: Associativity) -> (u8, u8) {
+        match assoc {
+            Associativity::Left => (self as u8 * 2, self as u8 * 2 + 1),
+            Associativity::Right => (self as u8 * 2 + 1, self as u8 * 2),
+            Associativity::None => (self as u8 * 2, self as u8 * 2),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Prefix {
     Plus,
@@ -8,11 +45,10 @@ pub enum Prefix {
 }
 
 impl Prefix {
-    pub fn binding_power(&self) -> u8 {
+    #[rustfmt::skip]
+    pub const fn binding_power(&self) -> u8 {
         match self {
-            Prefix::Plus => 0,
-            Prefix::Neg => 0,
-            Prefix::Not => 0,
+            Prefix::Plus | Prefix::Neg | Prefix::Not => Precedence::Unary.binding_power(Associativity::None).0,
         }
     }
 }
@@ -34,14 +70,19 @@ pub enum Infix {
     Mul,
     Div,
     Dot,
+    Colon,
+    Pow,
 }
 
 impl Infix {
-    pub fn binding_power(&self) -> (u8, u8) {
+    #[rustfmt::skip]
+    pub const fn binding_power(&self) -> (u8, u8) {
         match &self {
-            Infix::Add | Infix::Sub => (1, 2),
-            Infix::Mul | Infix::Div => (3, 4),
-            Infix::Dot => (6, 5),
+            Infix::Add | Infix::Sub => Precedence::Additive.binding_power(Associativity::Left),
+            Infix::Mul | Infix::Div => Precedence::Multiplicative.binding_power(Associativity::Left),
+            Infix::Dot => Precedence::Projection.binding_power(Associativity::Left),
+            Infix::Colon => Precedence::TypeAnnotation.binding_power(Associativity::None),
+            Infix::Pow => Precedence::Exponential.binding_power(Associativity::Right),
         }
     }
 }
@@ -54,6 +95,8 @@ impl Display for Infix {
             Self::Mul => write!(f, "*"),
             Self::Div => write!(f, "/"),
             Self::Dot => write!(f, "."),
+            Self::Colon => write!(f, ":"),
+            Self::Pow => write!(f, "**"),
         }
     }
 }
@@ -65,9 +108,10 @@ pub enum Postfix {
 }
 
 impl Postfix {
-    pub fn binding_power(&self) -> u8 {
+    #[rustfmt::skip]
+    pub const fn binding_power(&self) -> u8 {
         match self {
-            Postfix::Index => 0,
+            Postfix::Index => Precedence::Application.binding_power(Associativity::None).0,
         }
     }
 }
