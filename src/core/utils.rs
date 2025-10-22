@@ -200,7 +200,7 @@ impl<'a> PrettyContext<'a> {
         value: &impl PrettyPrint,
     ) -> std::fmt::Result {
         write!(writer, "{}: ", key)?;
-        value.pretty_print(self, writer)?;
+        value.print_ctx(self, writer)?;
         write!(writer, ",")
     }
 
@@ -213,15 +213,15 @@ impl<'a> PrettyContext<'a> {
         let mut ctx = self.indented();
         ctx.write_indent(writer)?;
         write!(writer, "{}: ", key)?;
-        value.pretty_print(&mut ctx, writer)?;
+        value.print_ctx(&mut ctx, writer)?;
         writeln!(writer, ",")
     }
 }
 
 pub trait PrettyPrint {
-    fn pretty_print(&self, ctx: &mut PrettyContext, w: &mut impl Write) -> std::fmt::Result;
+    fn print_ctx(&self, ctx: &mut PrettyContext, w: &mut impl Write) -> std::fmt::Result;
 
     fn print(&self, w: &mut impl Write) -> std::fmt::Result {
-        self.pretty_print(&mut PrettyContext::new(), w)
+        self.print_ctx(&mut PrettyContext::new(), w)
     }
 }

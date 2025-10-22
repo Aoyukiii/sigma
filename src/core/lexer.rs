@@ -153,12 +153,16 @@ pub enum TokenKind<'a> {
     DArrow,
     #[token("=")]
     Eq,
+    #[token(":=")]
+    ColonEq,
     #[token("|>")]
     Pipe,
     #[token(";")]
     Semicolon,
     #[token("let")]
     KwLet,
+    #[token("def")]
+    KwDef,
     #[token("in")]
     KwIn,
     #[token("Atom")]
