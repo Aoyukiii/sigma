@@ -8,7 +8,7 @@ use colored::Colorize;
 use crate::core::{
     lexer::{LexError, Lexer, Token, TokenKind},
     operator::{Infix, Prefix},
-    utils::{PrettyPrint, Span},
+    utils::{PrettyPrint, Span, write_codeblock},
 };
 
 #[derive(Debug)]
@@ -156,8 +156,8 @@ pub enum ParseErrorKind {
     BadToken { tok_str: String },
     UnclosedLParen,
     UnclosedRParen,
-    ExpectedExpr,
-    UnexpectedExpr,
+    ExpectedExpr { tok_str: String },
+    UnexpectedExpr { tok_str: String },
     Unknown,
 }
 
@@ -172,10 +172,54 @@ impl From<LexError> for ParseError {
     }
 }
 
+#[derive(Debug)]
+pub struct ParseErrorContext<'a> {
+    errs: Vec<ParseError>,
+    src: &'a str,
+}
+
+impl<'a> ParseErrorContext<'a> {
+    pub fn new(errs: Vec<ParseError>, src: &'a str) -> Self {
+        Self { errs, src }
+    }
+}
+
+impl<'a> Display for ParseErrorContext<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let errs = self.errs.iter().enumerate();
+        for (i, err) in errs {
+            writeln!(f, "[{}] {}", i + 1, err.to_string().red())?;
+            write_codeblock(f, self.src, err.span)?;
+        }
+        Ok(())
+    }
+}
+
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)?;
-        Ok(())
+        match &self.kind {
+            ParseErrorKind::UnexpectedToken { tok_str } => {
+                write!(f, "Unexpected token `{tok_str}`")
+            }
+            ParseErrorKind::BadToken { tok_str } => {
+                write!(f, "Bad token `{tok_str}`")
+            }
+            ParseErrorKind::UnclosedLParen => {
+                write!(f, "Uncolsed `(`")
+            }
+            ParseErrorKind::UnclosedRParen => {
+                write!(f, "Unclosed `)`")
+            }
+            ParseErrorKind::ExpectedExpr { tok_str } => {
+                write!(f, "Expect expression but found `{tok_str}`")
+            }
+            ParseErrorKind::UnexpectedExpr { tok_str } => {
+                write!(f, "Unexpected token `{tok_str}`")
+            }
+            ParseErrorKind::Unknown => {
+                write!(f, "Unknown error")
+            }
+        }
     }
 }
 
@@ -210,7 +254,15 @@ impl<'a> Parser<'a> {
     fn expr_bp(&mut self, min_bp: u8) -> Syntax {
         if self.lexer.peek_is(TokenKind::RParen) {
             let span = self.lexer.peek().span;
-            self.errs.push((ParseErrorKind::ExpectedExpr, span).into());
+            self.errs.push(
+                (
+                    ParseErrorKind::ExpectedExpr {
+                        tok_str: TokenKind::RParen.to_string(),
+                    },
+                    span,
+                )
+                    .into(),
+            );
             return Syntax::new_err(span);
         }
 
@@ -251,7 +303,7 @@ impl<'a> Parser<'a> {
             Ok(tok) => {
                 self.errs.push(
                     (
-                        ParseErrorKind::UnexpectedToken {
+                        ParseErrorKind::ExpectedExpr {
                             tok_str: tok.to_string(),
                         },
                         span,
@@ -274,6 +326,7 @@ impl<'a> Parser<'a> {
         loop {
             let peek = &self.lexer.peek().kind;
             let op = match peek {
+                // [TODO] can not recognize a second RParen in code like `a))`
                 Ok(TokenKind::EOF) | Ok(TokenKind::RParen) => break,
                 Ok(TokenKind::Plus) => Infix::Add,
                 Ok(TokenKind::Minus) => Infix::Sub,

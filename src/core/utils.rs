@@ -7,8 +7,14 @@ use colored::Colorize;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Cursor {
-    line: usize,
-    col: usize,
+    pub line: usize,
+    pub col: usize,
+}
+
+impl Display for Cursor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "line {}, col {}", self.line, self.col)
+    }
 }
 
 pub trait ToCursor {
@@ -44,6 +50,10 @@ pub struct Span {
 }
 
 impl Span {
+    pub fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+
     pub fn merge(self, other: Self) -> Self {
         Self {
             start: self.start.min(other.start),
@@ -55,6 +65,71 @@ impl Span {
     pub fn to_cursors(self, src: &str) -> (Cursor, Cursor) {
         (src.to_cursor(self.start), src.to_cursor(self.end))
     }
+}
+
+fn digits_unsigned<T>(n: T) -> usize
+where
+    T: Copy + PartialOrd + From<u8> + std::ops::DivAssign,
+{
+    let zero = T::from(0);
+    let ten = T::from(10);
+
+    if n == zero {
+        return 1;
+    }
+
+    let mut count = 0;
+    let mut num = n;
+    while num > zero {
+        count += 1;
+        num /= ten;
+    }
+    count
+}
+
+fn write_underline_ln(w: &mut impl Write, begin: usize, end: usize) -> std::fmt::Result {
+    writeln!(
+        w,
+        "{}{}",
+        " ".repeat(begin),
+        "^".repeat((end - begin).max(1)).bold().red()
+    )
+}
+
+pub fn write_codeblock(w: &mut impl Write, src: &str, span: Span) -> std::fmt::Result {
+    let lines: Vec<_> = src.split("\n").collect();
+    let (begin, end) = span.to_cursors(src);
+    let lines = &lines[begin.line..=end.line];
+
+    if lines.is_empty() {
+        return Ok(());
+    }
+
+    let line_num_width = digits_unsigned(end.line);
+    let total_lines = lines.len();
+
+    for (i, line) in lines.iter().enumerate() {
+        let line_num = begin.line + i + 1;
+        let formatted_line_num =
+            format!("{:>width$} | ", line_num, width = line_num_width).bright_black();
+
+        // code line
+        writeln!(w, "{}{}", formatted_line_num, line)?;
+
+        // padding
+        write!(w, "{}", " ".repeat(formatted_line_num.len()))?;
+
+        let (underline_start, underline_end) = match (i, total_lines) {
+            (0, 1) => (begin.col, end.col),                 // single line
+            (0, _) => (begin.col, line.len()),              // first line
+            (i, _) if i == total_lines - 1 => (0, end.col), // last line
+            _ => (0, line.len()),                           // other lines
+        };
+
+        write_underline_ln(w, underline_start, underline_end)?;
+    }
+
+    Ok(())
 }
 
 impl Default for Span {

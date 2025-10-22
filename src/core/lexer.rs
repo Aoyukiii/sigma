@@ -67,7 +67,7 @@ impl<'a> Lexer<'a> {
             &mut self.current_tok,
             self.tok_stream
                 .next()
-                .unwrap_or((Ok(TokenKind::EOF), self.src.len()..self.src.len()))
+                .unwrap_or((Ok(TokenKind::EOF), self.src.len() - 1..self.src.len() - 1))
                 .into(),
         );
         tok
