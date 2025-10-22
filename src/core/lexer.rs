@@ -174,7 +174,7 @@ pub enum TokenKind<'a> {
 
 impl<'a> Display for TokenKind<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self) // [TODO] write a full implementation instead of using Debug
+        write!(f, "{:?}", self) // TODO: write a full implementation instead of using Debug
     }
 }
 

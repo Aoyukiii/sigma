@@ -331,7 +331,7 @@ impl<'a> Parser<'a> {
         loop {
             let peek = &self.lexer.peek().kind;
             let op = match peek {
-                // [TODO] can not recognize a second RParen in code like `a))`
+                // TODO: can not recognize a second RParen in code like `a))`
                 Ok(TokenKind::EOF) | Ok(TokenKind::RParen) => break,
                 Ok(TokenKind::Plus) => Infix::Add,
                 Ok(TokenKind::Minus) => Infix::Sub,
