@@ -13,7 +13,7 @@ pub struct Cursor {
 
 impl Display for Cursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "line {}, col {}", self.line, self.col)
+        write!(f, "{}:{}", self.line + 1, self.col + 1)
     }
 }
 

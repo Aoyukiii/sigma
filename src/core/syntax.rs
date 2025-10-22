@@ -186,9 +186,14 @@ impl<'a> ParseErrorContext<'a> {
 
 impl<'a> Display for ParseErrorContext<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let errs = self.errs.iter().enumerate();
-        for (i, err) in errs {
-            writeln!(f, "[{}] {}", i + 1, err.to_string().red())?;
+        let errs = &self.errs;
+        for err in errs {
+            writeln!(
+                f,
+                "{} {}",
+                format!("[repl:{}]", err.span.to_cursors(self.src).0).underline(),
+                err.to_string().red()
+            )?;
             write_codeblock(f, self.src, err.span)?;
         }
         Ok(())
