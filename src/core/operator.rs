@@ -12,6 +12,7 @@ pub enum Precedence {
     Conjunction,    // && ∧
     Equality,       // == ≡ ≠
     Relational,     // < ≤ > ≥
+    Pipe,           // |>
     Shift,          // << >>
     Additive,       // + -
     Multiplicative, // * / %
@@ -74,6 +75,7 @@ pub enum Infix {
     Pow,
     Apply,
     Lambda,
+    Pipe,
 }
 
 impl Infix {
@@ -87,6 +89,7 @@ impl Infix {
             Infix::Pow => Precedence::Exponential.binding_power(Associativity::Right),
             Infix::Apply => Precedence::Application.binding_power(Associativity::Left),
             Infix::Lambda => Precedence::Implication.binding_power(Associativity::Right),
+            Infix::Pipe => Precedence::Pipe.binding_power(Associativity::Left),
         }
     }
 }
@@ -103,6 +106,7 @@ impl Display for Infix {
             Self::Pow => write!(f, "**"),
             Self::Apply => write!(f, "Apply"),
             Self::Lambda => write!(f, "=>"),
+            Self::Pipe => write!(f, "|>"),
         }
     }
 }

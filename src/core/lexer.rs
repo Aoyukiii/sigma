@@ -153,6 +153,8 @@ pub enum TokenKind<'a> {
     DArrow,
     #[token("=")]
     Eq,
+    #[token("|>")]
+    Pipe,
     #[token(";")]
     Semicolon,
     #[token("let")]

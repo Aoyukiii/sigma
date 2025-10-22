@@ -345,6 +345,7 @@ impl<'a> Parser<'a> {
                 Ok(TokenKind::Colon) => Infix::Colon,
                 Ok(TokenKind::DStar) => Infix::Pow,
                 Ok(TokenKind::DArrow) => Infix::Lambda,
+                Ok(TokenKind::Pipe) => Infix::Pipe,
                 Ok(TokenKind::Atom(_))
                 | Ok(TokenKind::Ident(_))
                 | Ok(TokenKind::LParen)
