@@ -73,6 +73,7 @@ pub enum Infix {
     Colon,
     Pow,
     Apply,
+    Lambda,
 }
 
 impl Infix {
@@ -85,6 +86,7 @@ impl Infix {
             Infix::Colon => Precedence::TypeAnnotation.binding_power(Associativity::None),
             Infix::Pow => Precedence::Exponential.binding_power(Associativity::Right),
             Infix::Apply => Precedence::Application.binding_power(Associativity::Left),
+            Infix::Lambda => Precedence::Implication.binding_power(Associativity::Right),
         }
     }
 }
@@ -100,6 +102,7 @@ impl Display for Infix {
             Self::Colon => write!(f, ":"),
             Self::Pow => write!(f, "**"),
             Self::Apply => write!(f, "Apply"),
+            Self::Lambda => write!(f, "=>"),
         }
     }
 }

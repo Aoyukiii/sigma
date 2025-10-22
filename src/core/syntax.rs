@@ -344,6 +344,7 @@ impl<'a> Parser<'a> {
                 Ok(TokenKind::Dot) => Infix::Dot,
                 Ok(TokenKind::Colon) => Infix::Colon,
                 Ok(TokenKind::DStar) => Infix::Pow,
+                Ok(TokenKind::DArrow) => Infix::Lambda,
                 Ok(TokenKind::Atom(_))
                 | Ok(TokenKind::Ident(_))
                 | Ok(TokenKind::LParen)
@@ -407,6 +408,11 @@ impl<'a> Parser<'a> {
                     SyntaxKind::Annotated(Box::new(Annotated {
                         expr: Box::new(lhs),
                         type_expr: Box::new(rhs),
+                    }))
+                } else if op == Infix::Lambda {
+                    SyntaxKind::Lambda(Box::new(Lambda {
+                        param: Box::new(lhs),
+                        body: Box::new(rhs),
                     }))
                 } else {
                     SyntaxKind::InfixExpr(Box::new(InfixExpr {
