@@ -11,10 +11,6 @@ pub struct Token<'a> {
 }
 
 impl<'a> Token<'a> {
-    pub fn is_eof(&self) -> bool {
-        matches!(&self.kind, Ok(kind) if kind.is_eof())
-    }
-
     /// Get a tuple of [`TokenKind`] and [`Span`], and may panic.
     pub fn unwrap_kind(self) -> (TokenKind<'a>, Span) {
         (self.kind.unwrap(), self.span)
@@ -181,12 +177,6 @@ pub enum TokenKind<'a> {
 impl<'a> Display for TokenKind<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self) // TODO: write a full implementation instead of using Debug
-    }
-}
-
-impl<'a> TokenKind<'a> {
-    pub fn is_eof(&self) -> bool {
-        matches!(self, TokenKind::EOF)
     }
 }
 
