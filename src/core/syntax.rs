@@ -158,6 +158,7 @@ pub enum ParseErrorKind {
     UnclosedRParen,
     ExpectedExpr { tok_str: String },
     UnexpectedExpr { tok_str: String },
+    NonAssociativeOp { op_str: String },
     Unknown,
 }
 
@@ -220,6 +221,9 @@ impl Display for ParseError {
             }
             ParseErrorKind::UnexpectedExpr { tok_str } => {
                 write!(f, "Unexpected token `{tok_str}`")
+            }
+            ParseErrorKind::NonAssociativeOp { op_str } => {
+                write!(f, "Non-associative operator `{op_str}` used continuously")
             }
             ParseErrorKind::Unknown => {
                 write!(f, "Unknown error")
@@ -329,7 +333,7 @@ impl<'a> Parser<'a> {
     fn expr_bp_with_lhs(&mut self, min_bp: u8, lhs: Syntax) -> Syntax {
         let mut lhs = lhs;
         loop {
-            let peek = &self.lexer.peek().kind;
+            let Token { kind: peek, span } = &self.lexer.peek();
             let op = match peek {
                 // TODO: can not recognize a second RParen in code like `a))`
                 Ok(TokenKind::EOF) | Ok(TokenKind::RParen) => break,
@@ -369,6 +373,16 @@ impl<'a> Parser<'a> {
             let (l_bp, r_bp) = op.binding_power();
             if l_bp < min_bp {
                 break;
+            } else if l_bp == min_bp {
+                self.errs.push(
+                    (
+                        ParseErrorKind::NonAssociativeOp {
+                            op_str: op.to_string(),
+                        },
+                        *span,
+                    )
+                        .into(),
+                );
             }
 
             if op == Infix::Apply {
