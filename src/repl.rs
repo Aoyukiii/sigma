@@ -2,7 +2,7 @@ use colored::Colorize;
 use std::io;
 use std::io::Write;
 
-use crate::core::syntax::{ParseErrorContext, Parser, StmtsOrExpr};
+use crate::core::raw_ast::{ParseErrorContext, Parser, StmtsOrExpr};
 
 pub fn repl() -> io::Result<()> {
     loop {
