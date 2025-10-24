@@ -2,7 +2,7 @@ use colored::Colorize;
 use std::io;
 use std::io::Write;
 
-use crate::core::raw_ast::{ParseErrorContext, Parser, StmtsOrExpr};
+use crate::core::raw_ast::ast::{ParseErrorContext, Parser, Ast};
 
 pub fn repl() -> io::Result<()> {
     loop {
@@ -29,6 +29,8 @@ pub fn repl() -> io::Result<()> {
                 input += &line;
                 break;
             }
+            print!("{} ", "→".green().bold());
+            io::stdout().flush()?;
         }
         run(&input);
     }
@@ -39,12 +41,12 @@ fn run<'a>(src: &'a str) {
     let (res, errs) = parser.repl_parse();
     println!("Raw ASTs:");
     match res {
-        StmtsOrExpr::Stmts(stmts) => {
+        Ast::Stmts(stmts) => {
             for stmt in stmts {
                 println!("{}", stmt);
             }
         }
-        StmtsOrExpr::Expr(expr) => {
+        Ast::Expr(expr) => {
             println!("{}", expr)
         }
     }
