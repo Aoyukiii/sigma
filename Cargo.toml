@@ -5,10 +5,8 @@ edition = "2024"
 
 [dependencies]
 logos = "0.15"
-# chumsky = "0.11"
 miette = { version = "7.6", features = ["fancy"] }
 thiserror = "2.0"
 colored = "3.0"
-# bumpalo = { version = "3.19", features = ["boxed"] }
 
 [build-dependencies]
