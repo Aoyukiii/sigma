@@ -52,6 +52,7 @@ pub enum ExprKind {
     Application(Box<Application>),
     Prefix(Box<PrefixExpr>),
     Infix(Box<InfixExpr>),
+    Let(Box<Let>),
     Error,
 }
 
@@ -93,6 +94,14 @@ impl PrettyPrint for ExprKind {
                 writeln!(w, "({}) @ {} (", it.op.to_string().magenta(), it.op_span)?;
                 ctx.write_field_ln(w, "lhs", it.lhs.as_ref())?;
                 ctx.write_field_ln(w, "rhs", it.rhs.as_ref())?;
+                ctx.write_indent(w)?;
+                write!(w, ")")
+            }
+            Self::Let(it) => {
+                writeln!(w, "Let(")?;
+                ctx.write_field_ln(w, "var", it.var.as_ref())?;
+                ctx.write_field_ln(w, "value", it.value.as_ref())?;
+                ctx.write_field_ln(w, "body", it.body.as_ref())?;
                 ctx.write_indent(w)?;
                 write!(w, ")")
             }
