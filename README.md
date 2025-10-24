@@ -1,9 +1,11 @@
 # $\sum$ - Sigma Lang
 
-Sigma is (will be) a dependent type language.
+Sigma is (not yet but will be) a dependent type language.
 
 **Features**
 - [x] A lexer (by Logos crate)
-- [ ] A Pratt parser (⚠️ still in progress)
+- [ ] A Pratt parser (⚠️ almost done)
+- [ ] An elaborator
 - [ ] A reducer
-- [ ] Transpile into IRs e.g. LLVM IR
+- [ ] A G-machine
+- [ ] Transpile into IRs e.g. LLVM IR (maybe we won't support this)
