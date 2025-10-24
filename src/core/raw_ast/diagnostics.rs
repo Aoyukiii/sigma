@@ -69,6 +69,16 @@ impl Diagnostics {
     pub fn has_err(&self) -> bool {
         !self.errs.is_empty()
     }
+
+    pub fn clear(&mut self) {
+        self.errs.clear()
+    }
+}
+
+impl Default for Diagnostics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DisplayReport<&str> for Diagnostics {

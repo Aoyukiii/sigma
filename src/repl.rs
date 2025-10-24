@@ -42,7 +42,7 @@ pub fn repl() -> io::Result<()> {
 
 fn run<'a>(src: &'a str) {
     let lexer = Lexer::new(src);
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let (res, diagnostics) = parser.repl_parse();
     println!("Raw ASTs:");
     match res {

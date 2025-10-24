@@ -41,6 +41,10 @@ where
         }
     }
 
+    pub fn with_tokens(&mut self, tokens: T) {
+        self.tokens = tokens;
+    }
+
     fn report(&mut self, err: ParseError) {
         self.errs.add_err(err)
     }
@@ -65,12 +69,14 @@ where
         }
     }
 
-    pub fn parse(mut self) -> (Vec<Stmt>, Diagnostics) {
-        (self.stmts(), self.errs)
+    pub fn parse(&mut self) -> (Vec<Stmt>, Diagnostics) {
+        self.errs.clear();
+        (self.stmts(), std::mem::take(&mut self.errs))
     }
 
-    pub fn repl_parse(mut self) -> (TopLevel, Diagnostics) {
-        (self.stmts_or_expr(), self.errs)
+    pub fn repl_parse(&mut self) -> (TopLevel, Diagnostics) {
+        self.errs.clear();
+        (self.stmts_or_expr(), std::mem::take(&mut self.errs))
     }
 
     pub fn stmts_or_expr(&mut self) -> TopLevel {
