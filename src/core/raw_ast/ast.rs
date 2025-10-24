@@ -1,322 +1,58 @@
-use std::{
-    fmt::Display,
-    ops::{Deref, DerefMut},
-};
-
-use colored::Colorize;
+use std::marker::PhantomData;
 
 use crate::core::{
-    lexer::{LexError, Lexer, Token, TokenKind},
     operator::{Infix, Prefix},
-    utils::{PrettyContext, PrettyPrint, Span, write_codeblock},
+    raw_ast::{
+        diagnostics::{Diagnostics, ParseError, ParseErrorKind},
+        expr::{Annotated, Application, Expr, ExprKind, InfixExpr, Lambda, PrefixExpr},
+        stmt::{Def, Stmt, StmtKind},
+    },
+    token::{
+        lexer::{Token, TokenKind},
+        stream::TokenStream,
+    },
+    utils::Span,
 };
 
 #[derive(Debug)]
-pub struct Expr {
-    pub kind: ExprKind,
-    pub span: Span,
-}
-
-impl From<(ExprKind, Span)> for Expr {
-    fn from((kind, span): (ExprKind, Span)) -> Self {
-        Self { kind, span }
-    }
-}
-
-impl Deref for Expr {
-    type Target = ExprKind;
-    fn deref(&self) -> &Self::Target {
-        &self.kind
-    }
-}
-
-impl PrettyPrint for Expr {
-    fn print_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
-        self.kind.print_ctx(ctx, w)?;
-        write!(w, " @ {}", self.span)
-    }
-}
-
-impl Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.print(f)
-    }
-}
-
-impl Expr {
-    fn new(kind: ExprKind, span: Span) -> Self {
-        Self { kind, span }
-    }
-
-    fn new_err(span: Span) -> Self {
-        Expr::new(ExprKind::Error, span)
-    }
-}
-
-impl DerefMut for Expr {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.kind
-    }
-}
-
-#[derive(Debug)]
-pub struct Stmt {
-    kind: StmtKind,
-    span: Span,
-}
-
-impl Stmt {
-    pub fn new(kind: StmtKind, span: Span) -> Self {
-        Self { kind, span }
-    }
-}
-
-impl From<(StmtKind, Span)> for Stmt {
-    fn from((kind, span): (StmtKind, Span)) -> Self {
-        Self { kind, span }
-    }
-}
-
-impl Display for Stmt {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} @ {}", self.kind, self.span)
-    }
-}
-
-#[derive(Debug)]
-pub enum StmtKind {
-    Def(Box<Def>),
-    Error,
-}
-
-impl PrettyPrint for StmtKind {
-    fn print_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
-        match self {
-            Self::Def(it) => {
-                writeln!(w, "Let(")?;
-                ctx.write_field_ln(w, "var", it.var.as_ref())?;
-                ctx.write_field_ln(w, "value", it.value.as_ref())?;
-                ctx.write_indent(w)?;
-                write!(w, ")")?;
-            }
-            Self::Error => {
-                write!(w, "{}", "Error".red())?;
-            }
-        }
-        Ok(())
-    }
-
-    fn print(&self, w: &mut impl std::fmt::Write) -> std::fmt::Result {
-        write!(w, "{} ", "[Stmt]".yellow())?;
-        self.print_ctx(&mut PrettyContext::new(), w)
-    }
-}
-
-impl Display for StmtKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.print(f)
-    }
-}
-
-#[derive(Debug)]
-pub struct Def {
-    var: Box<Expr>,
-    value: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub enum ExprKind {
-    Ident(String),
-    Atom,
-    Type,
-    AtomLiteral(String),
-    Annotated(Box<Annotated>),
-    Lambda(Box<Lambda>),
-    Application(Box<Application>),
-    Prefix(Box<PrefixExpr>),
-    Infix(Box<InfixExpr>),
-    Error,
-}
-
-impl PrettyPrint for ExprKind {
-    fn print_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
-        match self {
-            Self::Ident(it) => write!(w, "{}", it.to_string().magenta()),
-            Self::Atom => write!(w, "{}", "Atom".yellow()),
-            Self::Type => write!(w, "{}", "Type".yellow()),
-            Self::AtomLiteral(it) => write!(w, "{}", it.yellow()),
-            Self::Annotated(it) => {
-                writeln!(w, "Annotated(")?;
-                ctx.write_field_ln(w, "expr", it.expr.as_ref())?;
-                ctx.write_field_ln(w, "type", it.type_expr.as_ref())?;
-                ctx.write_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Application(it) => {
-                writeln!(w, "Applicaion(")?;
-                ctx.write_field_ln(w, "func", it.func.as_ref())?;
-                ctx.write_field_ln(w, "arg", it.arg.as_ref())?;
-                ctx.write_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Lambda(it) => {
-                writeln!(w, "Lambda(")?;
-                ctx.write_field_ln(w, "param", it.param.as_ref())?;
-                ctx.write_field_ln(w, "body", it.body.as_ref())?;
-                ctx.write_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Prefix(it) => {
-                writeln!(w, "({}) @ {} (", it.op.to_string().magenta(), it.op_span)?;
-                ctx.write_field_ln(w, "rhs", it.rhs.as_ref())?;
-                ctx.write_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Infix(it) => {
-                writeln!(w, "({}) @ {} (", it.op.to_string().magenta(), it.op_span)?;
-                ctx.write_field_ln(w, "lhs", it.lhs.as_ref())?;
-                ctx.write_field_ln(w, "rhs", it.rhs.as_ref())?;
-                ctx.write_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Error => write!(w, "{}", "Error".red()),
-        }
-    }
-}
-
-impl Display for ExprKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.print(f)
-    }
-}
-
-#[derive(Debug)]
-pub struct ParseError {
-    kind: ParseErrorKind,
-    span: Span,
-}
-
-impl ParseError {
-    pub fn new(kind: ParseErrorKind, span: Span) -> Self {
-        Self { kind, span }
-    }
-}
-
-impl From<(ParseErrorKind, Span)> for ParseError {
-    fn from((kind, span): (ParseErrorKind, Span)) -> Self {
-        Self::new(kind, span)
-    }
-}
-
-#[derive(Debug)]
-pub enum ParseErrorKind {
-    UnexpectedToken { tok_str: String },
-    Expected { expected: String, found: String },
-    BadToken { tok_str: String },
-    UnclosedLParen,
-    UnclosedRParen,
-    ExpectedExpr { tok_str: String },
-    NonAssociativeOp { op_str: String },
-    Unknown,
-}
-
-impl From<LexError> for ParseError {
-    fn from(lex_err: LexError) -> Self {
-        match lex_err {
-            LexError::BadToken { tok_str, span } => {
-                Self::new(ParseErrorKind::BadToken { tok_str }, span)
-            }
-            LexError::Unknown => Self::new(ParseErrorKind::Unknown, Span::default()),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ParseErrorContext<'a> {
-    errs: Vec<ParseError>,
-    src: &'a str,
-}
-
-impl<'a> ParseErrorContext<'a> {
-    pub fn new(errs: Vec<ParseError>, src: &'a str) -> Self {
-        Self { errs, src }
-    }
-}
-
-impl<'a> Display for ParseErrorContext<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let errs = &self.errs;
-        for err in errs {
-            writeln!(
-                f,
-                "{} {}",
-                format!("[repl:{}]", err.span.to_cursors(self.src).0).underline(),
-                err.to_string().red()
-            )?;
-            write_codeblock(f, self.src, err.span)?;
-        }
-        Ok(())
-    }
-}
-
-impl Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.kind {
-            ParseErrorKind::UnexpectedToken { tok_str } => {
-                write!(f, "Unexpected token `{tok_str}`")
-            }
-            ParseErrorKind::Expected { expected, found } => {
-                write!(f, "Expect `{expected}` but found `{found}`")
-            }
-            ParseErrorKind::BadToken { tok_str } => {
-                write!(f, "Bad token `{tok_str}`")
-            }
-            ParseErrorKind::UnclosedLParen => {
-                write!(f, "Uncolsed `(`")
-            }
-            ParseErrorKind::UnclosedRParen => {
-                write!(f, "Unclosed `)`")
-            }
-            ParseErrorKind::ExpectedExpr { tok_str } => {
-                write!(f, "Expect expression but found `{tok_str}`")
-            }
-            ParseErrorKind::NonAssociativeOp { op_str } => {
-                write!(f, "Non-associative operator `{op_str}` used continuously")
-            }
-            ParseErrorKind::Unknown => {
-                write!(f, "Unknown error")
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum Ast {
+pub enum TopLevel {
     Stmts(Vec<Stmt>),
     Expr(Expr),
 }
 
-pub struct Parser<'a> {
-    lexer: Lexer<'a>,
-    errs: Vec<ParseError>,
+pub struct Parser<'a, T>
+where
+    T: TokenStream<'a>,
+{
+    tokens: T,
+    errs: Diagnostics,
+    _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(src: &'a str) -> Self {
+impl<'a, T> Parser<'a, T>
+where
+    T: TokenStream<'a>,
+{
+    pub fn new(tokens: T) -> Self {
         Self {
-            lexer: Lexer::new(src),
-            errs: Vec::new(),
+            tokens,
+            errs: Diagnostics::new(),
+            _phantom: PhantomData,
         }
     }
 
+    fn report(&mut self, err: ParseError) {
+        self.errs.add_err(err)
+    }
+
     fn expect(&mut self, expected: TokenKind) {
-        if !self.lexer.expect(expected.clone()) {
-            let peek = self.lexer.next();
+        if !self.tokens.expect(expected.clone()) {
+            let peek = self.tokens.next();
             let found = match peek.kind {
                 Ok(tok) => tok.to_string(),
                 Err(_) => "invalid token".to_string(), // TODO: not a good information
             };
-            self.errs.push(
+            self.report(
                 (
                     ParseErrorKind::Expected {
                         expected: expected.to_string(),
@@ -329,48 +65,48 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(mut self) -> (Vec<Stmt>, Vec<ParseError>) {
+    pub fn parse(mut self) -> (Vec<Stmt>, Diagnostics) {
         (self.stmts(), self.errs)
     }
 
-    pub fn repl_parse(mut self) -> (Ast, Vec<ParseError>) {
+    pub fn repl_parse(mut self) -> (TopLevel, Diagnostics) {
         (self.stmts_or_expr(), self.errs)
     }
 
-    pub fn stmts_or_expr(&mut self) -> Ast {
+    pub fn stmts_or_expr(&mut self) -> TopLevel {
         let mut stmts = Vec::new();
-        while !self.lexer.is_empty() {
-            let peek = &self.lexer.peek().kind;
+        while !self.tokens.is_empty() {
+            let peek = &self.tokens.peek().kind;
             let stmt = match peek {
                 Ok(TokenKind::KwDef) => {
-                    let span = self.lexer.next().span;
+                    let span = self.tokens.next().span;
                     self.stmt_def(span)
                 }
-                Ok(_) => return Ast::Expr(self.expr()),
+                Ok(_) => return TopLevel::Expr(self.expr()),
                 Err(_) => {
-                    let (e, span) = self.lexer.next().unwrap_error();
-                    self.errs.push(e.into());
+                    let (e, span) = self.tokens.next().unwrap_error();
+                    self.report(e.into());
                     (StmtKind::Error, span).into()
                 }
             };
             stmts.push(stmt);
         }
-        Ast::Stmts(stmts)
+        TopLevel::Stmts(stmts)
     }
 
     pub fn stmts(&mut self) -> Vec<Stmt> {
         let mut stmts = Vec::new();
-        while !self.lexer.is_empty() {
-            let peek = &self.lexer.peek().kind;
+        while !self.tokens.is_empty() {
+            let peek = &self.tokens.peek().kind;
             let stmt = match peek {
                 Ok(TokenKind::KwDef) => {
-                    let span = self.lexer.next().span;
+                    let span = self.tokens.next().span;
                     self.stmt_def(span)
                 }
                 Ok(_) => break,
                 Err(_) => {
-                    let (e, span) = self.lexer.next().unwrap_error();
-                    self.errs.push(e.into());
+                    let (e, span) = self.tokens.next().unwrap_error();
+                    self.report(e.into());
                     (StmtKind::Error, span).into()
                 }
             };
@@ -389,20 +125,19 @@ impl<'a> Parser<'a> {
 
     fn expr(&mut self) -> Expr {
         let expr = self.expr_bp(0);
-        if self.lexer.peek_is(TokenKind::RParen) {
+        if self.tokens.peek_is(TokenKind::RParen) {
             // error recovery for `)`
-            let span = self.lexer.next().span;
-            self.errs
-                .push((ParseErrorKind::UnclosedRParen, span).into());
+            let span = self.tokens.next().span;
+            self.report((ParseErrorKind::UnclosedRParen, span).into());
             return self.expr_bp_with_lhs(0, expr);
         }
         expr
     }
 
     fn expr_bp(&mut self, min_bp: u8) -> Expr {
-        if self.lexer.peek_is(TokenKind::RParen) {
-            let span = self.lexer.peek().span;
-            self.errs.push(
+        if self.tokens.peek_is(TokenKind::RParen) {
+            let span = self.tokens.peek().span;
+            self.report(
                 (
                     ParseErrorKind::ExpectedExpr {
                         tok_str: TokenKind::RParen.to_string(),
@@ -414,7 +149,7 @@ impl<'a> Parser<'a> {
             return Expr::new_err(span);
         }
 
-        let Token { kind: next, span } = self.lexer.next();
+        let Token { kind: next, span } = self.tokens.next();
         let lhs = match next {
             Ok(TokenKind::Atom(it)) => (ExprKind::AtomLiteral(it.to_string()), span).into(),
             Ok(TokenKind::Ident(it)) => (ExprKind::Ident(it.to_string()), span).into(),
@@ -443,15 +178,14 @@ impl<'a> Parser<'a> {
             }
             Ok(TokenKind::LParen) => {
                 let syntax = self.expr_bp(0);
-                if !self.lexer.expect(TokenKind::RParen) {
-                    self.errs
-                        .push((ParseErrorKind::UnclosedLParen, span).into());
+                if !self.tokens.expect(TokenKind::RParen) {
+                    self.report((ParseErrorKind::UnclosedLParen, span).into());
                 }
                 syntax
             }
             Ok(TokenKind::RParen) => unreachable!(),
             Ok(tok) => {
-                self.errs.push(
+                self.report(
                     (
                         ParseErrorKind::ExpectedExpr {
                             tok_str: tok.to_string(),
@@ -463,7 +197,7 @@ impl<'a> Parser<'a> {
                 Expr::new_err(span)
             }
             Err(e) => {
-                self.errs.push(e.into());
+                self.report(e.into());
                 Expr::new_err(span)
             }
         };
@@ -474,7 +208,7 @@ impl<'a> Parser<'a> {
     fn expr_bp_with_lhs(&mut self, min_bp: u8, lhs: Expr) -> Expr {
         let mut lhs = lhs;
         loop {
-            let Token { kind: peek, span } = &self.lexer.peek();
+            let Token { kind: peek, span } = &self.tokens.peek();
             let op = match peek {
                 // TODO: can not recognize a second RParen in code like `a))`
                 Ok(TokenKind::EOF)
@@ -496,9 +230,9 @@ impl<'a> Parser<'a> {
                 | Ok(TokenKind::KwAtom)
                 | Ok(TokenKind::KwType) => Infix::Apply,
                 Ok(_) => {
-                    let (tok, span) = self.lexer.next().unwrap_kind();
+                    let (tok, span) = self.tokens.next().unwrap_kind();
                     // Comsume this bad token and return
-                    self.errs.push(
+                    self.report(
                         (
                             ParseErrorKind::UnexpectedToken {
                                 tok_str: tok.to_string(),
@@ -510,8 +244,8 @@ impl<'a> Parser<'a> {
                     continue;
                 }
                 Err(_) => {
-                    let e = self.lexer.next().kind.unwrap_err();
-                    self.errs.push(e.into());
+                    let e = self.tokens.next().kind.unwrap_err();
+                    self.report(e.into());
                     continue;
                 }
             };
@@ -520,7 +254,7 @@ impl<'a> Parser<'a> {
             if l_bp < min_bp {
                 break;
             } else if l_bp == min_bp {
-                self.errs.push(
+                self.report(
                     (
                         ParseErrorKind::NonAssociativeOp {
                             op_str: op.to_string(),
@@ -545,7 +279,7 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let op_span = self.lexer.next().span;
+            let op_span = self.tokens.next().span;
             let rhs = self.expr_bp(r_bp);
             let span = lhs.span.merge(rhs.span);
 
@@ -575,44 +309,4 @@ impl<'a> Parser<'a> {
 
         lhs
     }
-}
-
-#[derive(Debug)]
-pub struct Annotated {
-    expr: Box<Expr>,
-    type_expr: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub struct Lambda {
-    param: Box<Expr>,
-    body: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub struct Application {
-    func: Box<Expr>,
-    arg: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub struct PrefixExpr {
-    op: Prefix,
-    op_span: Span,
-    rhs: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub struct InfixExpr {
-    op: Infix,
-    op_span: Span,
-    lhs: Box<Expr>,
-    rhs: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub struct Let {
-    var: Box<Expr>,
-    value: Box<Expr>,
-    body: Box<Expr>,
 }

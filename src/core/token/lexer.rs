@@ -2,7 +2,7 @@ use std::{fmt::Display, ops::Range};
 
 use logos::{Lexer as LogosLexer, Logos, SpannedIter};
 
-use crate::core::utils::Span;
+use crate::core::{token::stream::TokenStream, utils::Span};
 
 #[derive(Debug, PartialEq)]
 pub struct Token<'a> {
@@ -56,9 +56,11 @@ impl<'a> Lexer<'a> {
             current_tok,
         }
     }
+}
 
+impl<'a> TokenStream<'a> for Lexer<'a> {
     /// Consume a token
-    pub fn next(&mut self) -> Token<'a> {
+    fn next(&mut self) -> Token<'a> {
         let tok = std::mem::replace(
             &mut self.current_tok,
             self.tok_stream
@@ -69,26 +71,9 @@ impl<'a> Lexer<'a> {
         tok
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.peek_is(TokenKind::EOF)
-    }
-
     /// Peek a token
-    pub const fn peek(&self) -> &Token<'a> {
+    fn peek(&self) -> &Token<'a> {
         &self.current_tok
-    }
-
-    /// Peek a token and check if it is expected
-    pub fn peek_is(&self, expected: TokenKind) -> bool {
-        matches!(&self.peek().kind, Ok(tok) if *tok == expected)
-    }
-
-    pub fn expect(&mut self, expected: TokenKind) -> bool {
-        let is_expected = self.peek_is(expected);
-        if is_expected {
-            self.next();
-        }
-        is_expected
     }
 }
 
@@ -184,7 +169,10 @@ impl<'a> Display for TokenKind<'a> {
 mod test {
     use logos::Logos;
 
-    use crate::core::lexer::{Lexer, TokenKind};
+    use crate::core::token::{
+        lexer::{Lexer, TokenKind},
+        stream::TokenStream,
+    };
 
     #[test]
     fn lexing() {

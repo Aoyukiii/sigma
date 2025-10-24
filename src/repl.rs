@@ -2,7 +2,11 @@ use colored::Colorize;
 use std::io;
 use std::io::Write;
 
-use crate::core::raw_ast::ast::{ParseErrorContext, Parser, Ast};
+use crate::core::{
+    raw_ast::{Parser, TopLevel},
+    report::DisplayReport,
+    token::lexer::Lexer,
+};
 
 pub fn repl() -> io::Result<()> {
     loop {
@@ -37,21 +41,22 @@ pub fn repl() -> io::Result<()> {
 }
 
 fn run<'a>(src: &'a str) {
-    let parser = Parser::new(src);
-    let (res, errs) = parser.repl_parse();
+    let lexer = Lexer::new(src);
+    let parser = Parser::new(lexer);
+    let (res, diagnostics) = parser.repl_parse();
     println!("Raw ASTs:");
     match res {
-        Ast::Stmts(stmts) => {
+        TopLevel::Stmts(stmts) => {
             for stmt in stmts {
-                println!("{}", stmt);
+                println!("{stmt}");
             }
         }
-        Ast::Expr(expr) => {
-            println!("{}", expr)
+        TopLevel::Expr(expr) => {
+            println!("{expr}")
         }
     }
-    if !errs.is_empty() {
+    if diagnostics.has_err() {
         eprintln!("{}", "Parse Error".bold().red());
-        eprint!("{}", ParseErrorContext::new(errs, src))
+        eprint!("{}", diagnostics.report(&src))
     }
 }
