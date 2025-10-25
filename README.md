@@ -4,7 +4,7 @@ Sigma is (not yet but will be) a dependent type language.
 
 **Features**
 - [x] A lexer (by Logos crate)
-- [ ] A Pratt parser (⚠️ almost done)
+- [x] A Pratt parser (⚠️ almost done)
 - [ ] An elaborator
 - [ ] A reducer
 - [ ] A G-machine
