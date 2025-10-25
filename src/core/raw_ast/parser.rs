@@ -4,15 +4,12 @@ use crate::core::{
     raw_ast::{
         diagnostics::{Diagnostics, ParseError, ParseErrorKind},
         stmt::Stmt,
-        top_level::TopLevel,
     },
     token::{lexer::TokenKind, stream::TokenStream},
 };
 
 mod expr;
 mod stmt;
-mod top_level;
-
 pub struct Parser<'a, T>
 where
     T: TokenStream<'a>,
@@ -61,10 +58,5 @@ where
     pub fn parse(&mut self) -> (Vec<Stmt>, Diagnostics) {
         self.errs.clear();
         (self.stmts(), std::mem::take(&mut self.errs))
-    }
-
-    pub fn repl_parse(&mut self) -> (TopLevel, Diagnostics) {
-        self.errs.clear();
-        (self.top_level(), std::mem::take(&mut self.errs))
     }
 }

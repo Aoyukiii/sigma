@@ -28,6 +28,7 @@ impl Display for Stmt {
 #[derive(Debug)]
 pub enum StmtKind {
     Def(Box<Def>),
+    Eval(Box<Expr>),
     Error,
 }
 
@@ -38,6 +39,15 @@ impl PrettyPrint for StmtKind {
                 writeln!(w, "Let(")?;
                 ctx.write_field_ln(w, "var", it.var.as_ref())?;
                 ctx.write_field_ln(w, "value", it.value.as_ref())?;
+                ctx.write_indent(w)?;
+                write!(w, ")")?;
+            }
+            Self::Eval(it) => {
+                writeln!(w, "Eval(")?;
+                let mut indented = ctx.indented();
+                indented.write_indent(w)?;
+                it.print_ctx(&mut ctx.indented(), w)?;
+                writeln!(w, "")?;
                 ctx.write_indent(w)?;
                 write!(w, ")")?;
             }

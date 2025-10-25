@@ -3,7 +3,7 @@ use std::io;
 use std::io::Write;
 
 use crate::core::{
-    raw_ast::{Parser, TopLevel, diagnostics::Diagnostics},
+    raw_ast::{Parser, diagnostics::Diagnostics, stmt::Stmt},
     report::DisplayReport,
     token::lexer::Lexer,
 };
@@ -23,23 +23,16 @@ impl Repl {
         }
     }
 
-    fn parse(&self, src: &str) -> (TopLevel, Diagnostics) {
+    fn parse(&self, src: &str) -> (Vec<Stmt>, Diagnostics) {
         let lexer = Lexer::new(src);
         let mut parser = Parser::new(lexer);
-        parser.repl_parse()
+        parser.parse()
     }
 
-    fn show_raw_ast(&self, res: TopLevel) {
+    fn show_raw_ast(&self, stmts: Vec<Stmt>) {
         println!("Raw ASTs:");
-        match res {
-            TopLevel::Stmts(stmts) => {
-                for stmt in stmts {
-                    println!("{stmt}");
-                }
-            }
-            TopLevel::Expr(expr) => {
-                println!("{expr}")
-            }
+        for stmt in stmts {
+            println!("{stmt}");
         }
     }
 

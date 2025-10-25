@@ -20,7 +20,11 @@ where
                     let span = self.tokens.next().span;
                     self.stmt_def(span)
                 }
-                Ok(_) => break,
+                Ok(_) => {
+                    let expr = self.expr();
+                    let span = expr.span;
+                    (StmtKind::Eval(Box::new(expr)), span).into()
+                }
                 Err(_) => {
                     let (e, span) = self.tokens.next().unwrap_error();
                     self.report(e.into());
