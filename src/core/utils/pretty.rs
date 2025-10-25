@@ -24,17 +24,6 @@ impl<'a> PrettyContext<'a> {
         write!(writer, "{}", self.indent.repeat(self.level))
     }
 
-    pub fn write_field(
-        &mut self,
-        writer: &mut impl Write,
-        key: &str,
-        value: &impl PrettyPrint,
-    ) -> std::fmt::Result {
-        write!(writer, "{}: ", key)?;
-        value.print_ctx(self, writer)?;
-        write!(writer, ",")
-    }
-
     pub fn write_field_ln(
         &mut self,
         writer: &mut impl Write,

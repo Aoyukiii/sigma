@@ -14,10 +14,6 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
-    }
-
     pub fn merge(self, other: Self) -> Self {
         Self {
             start: self.start.min(other.start),
