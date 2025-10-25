@@ -1,11 +1,13 @@
-use crate::repl::repl;
 use std::process::exit;
+
+use crate::repl::Repl;
 
 mod core;
 mod repl;
 
 fn main() {
-    if let Err(e) = repl() {
+    let repl = Repl;
+    if let Err(e) = repl.run() {
         eprintln!("IO Error: {e}");
         exit(1)
     }

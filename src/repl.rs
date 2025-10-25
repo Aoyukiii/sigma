@@ -3,60 +3,94 @@ use std::io;
 use std::io::Write;
 
 use crate::core::{
-    raw_ast::{Parser, TopLevel},
+    raw_ast::{Parser, TopLevel, diagnostics::Diagnostics},
     report::DisplayReport,
     token::lexer::Lexer,
 };
 
-pub fn repl() -> io::Result<()> {
-    loop {
-        // Show prompt
-        print!("{} ", "Σ".green().bold());
-        io::stdout().flush()?;
+pub struct Repl;
 
-        // Read input
+impl Repl {
+    pub fn run(&self) -> io::Result<()> {
+        loop {
+            print!("{} ", "Σ".green().bold());
+            io::stdout().flush()?;
+
+            let input = self.read_input()?;
+            let (res, diagnostics) = self.parse(&input);
+            self.show_raw_ast(res);
+            self.show_diagnostics(diagnostics, &input);
+        }
+    }
+
+    fn parse(&self, src: &str) -> (TopLevel, Diagnostics) {
+        let lexer = Lexer::new(src);
+        let mut parser = Parser::new(lexer);
+        parser.repl_parse()
+    }
+
+    fn show_raw_ast(&self, res: TopLevel) {
+        println!("Raw ASTs:");
+        match res {
+            TopLevel::Stmts(stmts) => {
+                for stmt in stmts {
+                    println!("{stmt}");
+                }
+            }
+            TopLevel::Expr(expr) => {
+                println!("{expr}")
+            }
+        }
+    }
+
+    fn show_diagnostics(&self, diagnostics: Diagnostics, src: &str) {
+        if diagnostics.has_err() {
+            eprintln!("{}", "Parse Error".bold().red());
+            eprint!("{}", diagnostics.report(&src))
+        }
+    }
+
+    fn read_input(&self) -> io::Result<String> {
         let mut input = String::new();
         loop {
-            let mut line = String::new();
-            io::stdin().read_line(&mut line)?;
-            if line.ends_with("\\") {
-                input += &line[..line.len() - 1];
-            } else if line.ends_with("\\\n") {
-                // Unix style
-                input += &line[..line.len() - 2];
-                input += "\n";
-            } else if line.ends_with("\\\r\n") {
-                // Windows style
-                input += &line[..line.len() - 3];
-                input += "\n";
-            } else {
-                input += &line;
+            let line = self.read_line()?;
+            let line = InputFragment::from_line(&line);
+            input += &line.content;
+            if line.is_complete {
                 break;
             }
             print!("{} ", "→".green().bold());
             io::stdout().flush()?;
         }
-        run(&input);
+        Ok(input)
+    }
+
+    fn read_line(&self) -> io::Result<String> {
+        let mut line = String::new();
+        io::stdin().read_line(&mut line)?;
+        Ok(line)
     }
 }
 
-fn run<'a>(src: &'a str) {
-    let lexer = Lexer::new(src);
-    let mut parser = Parser::new(lexer);
-    let (res, diagnostics) = parser.repl_parse();
-    println!("Raw ASTs:");
-    match res {
-        TopLevel::Stmts(stmts) => {
-            for stmt in stmts {
-                println!("{stmt}");
-            }
+struct InputFragment {
+    content: String,
+    is_complete: bool,
+}
+
+impl InputFragment {
+    fn from_line(line: &str) -> Self {
+        let (content, is_complete) = if let Some(stripped) = line.strip_suffix("\\\r\n") {
+            (format!("{}\n", stripped), false) // Windows style
+        } else if let Some(stripped) = line.strip_suffix("\\\n") {
+            (format!("{}\n", stripped), false) // Unix style
+        } else if let Some(stripped) = line.strip_suffix("\\") {
+            (stripped.to_string(), false)
+        } else {
+            (line.to_string(), true)
+        };
+        Self {
+            content,
+            is_complete,
         }
-        TopLevel::Expr(expr) => {
-            println!("{expr}")
-        }
-    }
-    if diagnostics.has_err() {
-        eprintln!("{}", "Parse Error".bold().red());
-        eprint!("{}", diagnostics.report(&src))
     }
 }

@@ -75,6 +75,7 @@ pub enum Infix {
     Pow,
     Apply,
     Lambda,
+    Imply,
     Pipe,
 }
 
@@ -89,6 +90,7 @@ impl Infix {
             Infix::Pow => Precedence::Exponential.binding_power(Associativity::Right),
             Infix::Apply => Precedence::Application.binding_power(Associativity::Left),
             Infix::Lambda => Precedence::Implication.binding_power(Associativity::Right),
+            Infix::Imply => Precedence::Implication.binding_power(Associativity::Right),
             Infix::Pipe => Precedence::Pipe.binding_power(Associativity::Left),
         }
     }
@@ -106,6 +108,7 @@ impl Display for Infix {
             Self::Pow => write!(f, "**"),
             Self::Apply => write!(f, "Apply"),
             Self::Lambda => write!(f, "=>"),
+            Self::Imply => write!(f, "->"),
             Self::Pipe => write!(f, "|>"),
         }
     }

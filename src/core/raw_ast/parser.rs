@@ -6,6 +6,7 @@ use crate::core::{
         diagnostics::{Diagnostics, ParseError, ParseErrorKind},
         expr::{Annotated, Application, Expr, ExprKind, InfixExpr, Lambda, Let, PrefixExpr},
         stmt::{Def, Stmt, StmtKind},
+        top_level::TopLevel,
     },
     token::{
         lexer::{Token, TokenKind},
@@ -13,12 +14,6 @@ use crate::core::{
     },
     utils::Span,
 };
-
-#[derive(Debug)]
-pub enum TopLevel {
-    Stmts(Vec<Stmt>),
-    Expr(Expr),
-}
 
 pub struct Parser<'a, T>
 where
@@ -229,6 +224,7 @@ where
                 Ok(TokenKind::Colon) => Infix::Colon,
                 Ok(TokenKind::DStar) => Infix::Pow,
                 Ok(TokenKind::DArrow) => Infix::Lambda,
+                Ok(TokenKind::Arrow) => Infix::Imply,
                 Ok(TokenKind::Pipe) => Infix::Pipe,
                 Ok(TokenKind::Atom(_))
                 | Ok(TokenKind::Ident(_))
