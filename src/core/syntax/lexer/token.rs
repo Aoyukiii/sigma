@@ -1,8 +1,8 @@
 use std::{fmt::Display, ops::Range};
 
-use logos::{Lexer as LogosLexer, Logos, SpannedIter};
+use logos::{Lexer as LogosLexer, Logos};
 
-use crate::core::{token::stream::TokenStream, utils::Span};
+use crate::core::{diagnostics::errors::LexError, utils::span::Span};
 
 #[derive(Debug, PartialEq)]
 pub struct Token<'a> {
@@ -37,69 +37,8 @@ impl<'a> From<(Result<TokenKind<'a>, LexError>, Range<usize>)> for Token<'a> {
     }
 }
 
-pub struct Lexer<'a> {
-    tok_stream: SpannedIter<'a, TokenKind<'a>>,
-    current_tok: Token<'a>,
-    src: &'a str,
-}
-
-impl<'a> Lexer<'a> {
-    pub fn new(src: &'a str) -> Self {
-        let mut tok_stream = TokenKind::lexer(src).spanned();
-        let current_tok = tok_stream
-            .next()
-            .unwrap_or((Ok(TokenKind::EOF), src.len()..src.len()))
-            .into();
-        Self {
-            src,
-            tok_stream,
-            current_tok,
-        }
-    }
-}
-
-impl<'a> TokenStream<'a> for Lexer<'a> {
-    /// Consume a token
-    fn next(&mut self) -> Token<'a> {
-        let tok = std::mem::replace(
-            &mut self.current_tok,
-            self.tok_stream
-                .next()
-                .unwrap_or((Ok(TokenKind::EOF), self.src.len() - 1..self.src.len() - 1))
-                .into(),
-        );
-        tok
-    }
-
-    /// Peek a token
-    fn peek(&self) -> &Token<'a> {
-        &self.current_tok
-    }
-}
-
 fn slice_str_callback<'a>(lex: &mut LogosLexer<'a, TokenKind<'a>>) -> &'a str {
     lex.slice()
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum LexError {
-    BadToken { tok_str: String, span: Span },
-    Unknown,
-}
-
-impl Default for LexError {
-    fn default() -> Self {
-        Self::Unknown
-    }
-}
-
-impl LexError {
-    fn from_lexer<'a>(lex: &mut LogosLexer<'a, TokenKind<'a>>) -> Self {
-        Self::BadToken {
-            tok_str: lex.slice().to_string(),
-            span: lex.span().into(),
-        }
-    }
 }
 
 #[derive(Logos, Debug, PartialEq, Clone)]
@@ -188,65 +127,5 @@ impl<'a> Display for TokenKind<'a> {
             Self::Ident(it) => write!(f, "identifier {it}"),
             Self::EOF => write!(f, "EOF"),
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use logos::Logos;
-
-    use crate::core::token::{
-        lexer::{Lexer, TokenKind},
-        stream::TokenStream,
-    };
-
-    #[test]
-    fn lexing() {
-        let to_test = [
-            (
-                "Hi, Atom 'atom.",
-                vec![
-                    Ok(TokenKind::Ident("Hi")),
-                    Ok(TokenKind::Comma),
-                    Ok(TokenKind::KwAtom),
-                    Ok(TokenKind::Atom("'atom")),
-                    Ok(TokenKind::Dot),
-                ],
-            ),
-            (
-                "let me: Type you;",
-                vec![
-                    Ok(TokenKind::KwLet),
-                    Ok(TokenKind::Ident("me")),
-                    Ok(TokenKind::Colon),
-                    Ok(TokenKind::KwType),
-                    Ok(TokenKind::Ident("you")),
-                    Ok(TokenKind::Semicolon),
-                ],
-            ),
-        ];
-
-        for (source, tokens) in to_test {
-            let mut tokens = tokens.into_iter();
-            let mut lexer = TokenKind::lexer(source);
-
-            while let Some(token_lexed) = lexer.next() {
-                if let Some(token) = tokens.next() {
-                    assert_eq!(token_lexed, token)
-                } else {
-                    panic!("Token length is not enough!")
-                }
-            }
-
-            if tokens.next() != None {
-                panic!("Lexed token length is not enough!")
-            }
-        }
-    }
-
-    #[test]
-    fn iter_with_span() {
-        let mut lexer = Lexer::new("");
-        lexer.next();
     }
 }

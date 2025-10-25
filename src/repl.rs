@@ -2,11 +2,11 @@ use colored::Colorize;
 use std::io;
 use std::io::Write;
 
-use crate::core::{
-    raw_ast::{Parser, diagnostics::Diagnostics, stmt::Stmt},
-    report::DisplayReport,
-    token::lexer::Lexer,
-};
+use crate::core::diagnostics::Diagnostics;
+use crate::core::diagnostics::display_report::DisplayReport;
+use crate::core::syntax::ast::raw::stmt::Stmt;
+use crate::core::syntax::lexer::Lexer;
+use crate::core::syntax::parser::Parser;
 
 pub struct Repl;
 

@@ -1,15 +1,19 @@
+pub mod expr;
+pub mod stmt;
+
 use std::marker::PhantomData;
 
 use crate::core::{
-    raw_ast::{
-        diagnostics::{Diagnostics, ParseError, ParseErrorKind},
-        stmt::Stmt,
+    diagnostics::{
+        Diagnostics,
+        errors::{ParseError, ParseErrorKind},
     },
-    token::{lexer::TokenKind, stream::TokenStream},
+    syntax::{
+        ast::raw::stmt::Stmt,
+        lexer::{stream::TokenStream, token::TokenKind},
+    },
 };
 
-mod expr;
-mod stmt;
 pub struct Parser<'a, T>
 where
     T: TokenStream<'a>,

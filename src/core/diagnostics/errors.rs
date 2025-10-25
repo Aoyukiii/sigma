@@ -1,16 +1,12 @@
-use colored::Colorize;
 use std::fmt::Display;
 
-use crate::core::{
-    report::DisplayReport,
-    token::lexer::LexError,
-    utils::{Span, write_codeblock},
-};
+use crate::core::{syntax::lexer::token::TokenKind, utils::span::Span};
+use logos::Lexer as LogosLexer;
 
 #[derive(Debug)]
 pub struct ParseError {
-    kind: ParseErrorKind,
-    span: Span,
+    pub kind: ParseErrorKind,
+    pub span: Span,
 }
 
 impl From<(ParseErrorKind, Span)> for ParseError {
@@ -60,51 +56,6 @@ impl ParseErrorKind {
     }
 }
 
-#[derive(Debug)]
-pub struct Diagnostics {
-    errs: Vec<ParseError>,
-}
-
-impl Diagnostics {
-    pub fn new() -> Self {
-        Self { errs: Vec::new() }
-    }
-
-    pub fn add_err(&mut self, err: ParseError) {
-        self.errs.push(err)
-    }
-
-    pub fn has_err(&self) -> bool {
-        !self.errs.is_empty()
-    }
-
-    pub fn clear(&mut self) {
-        self.errs.clear()
-    }
-}
-
-impl Default for Diagnostics {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl DisplayReport<&str> for Diagnostics {
-    fn fmt(&self, w: &mut impl std::fmt::Write, ctx: &&str) -> std::fmt::Result {
-        let errs = &self.errs;
-        for err in errs {
-            writeln!(
-                w,
-                "{} {}",
-                format!("[repl:{}]", err.span.to_cursors(ctx).0).underline(),
-                err.to_string().red()
-            )?;
-            write_codeblock(w, ctx, err.span)?;
-        }
-        Ok(())
-    }
-}
-
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
@@ -129,6 +80,27 @@ impl Display for ParseError {
             ParseErrorKind::InternalError => {
                 write!(f, "Internal error")
             }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum LexError {
+    BadToken { tok_str: String, span: Span },
+    Unknown,
+}
+
+impl Default for LexError {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
+impl LexError {
+    pub fn from_lexer<'a>(lex: &mut LogosLexer<'a, TokenKind<'a>>) -> Self {
+        Self::BadToken {
+            tok_str: lex.slice().to_string(),
+            span: lex.span().into(),
         }
     }
 }

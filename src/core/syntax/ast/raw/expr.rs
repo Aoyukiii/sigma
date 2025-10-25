@@ -3,8 +3,11 @@ use std::fmt::Display;
 use colored::Colorize;
 
 use crate::core::{
-    operator::{Infix, Prefix},
-    utils::{PrettyContext, PrettyPrint, Span},
+    syntax::ast::raw::operator::{Infix, Prefix},
+    utils::{
+        pretty::{PrettyContext, PrettyPrint},
+        span::Span,
+    },
 };
 
 #[derive(Debug)]

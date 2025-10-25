@@ -1,4 +1,4 @@
-use crate::core::token::lexer::{Token, TokenKind};
+use crate::core::syntax::lexer::{Token, TokenKind};
 
 pub trait TokenStream<'a> {
     /// Consume a token

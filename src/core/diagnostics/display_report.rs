@@ -11,7 +11,6 @@ pub trait DisplayReport<C>: Sized {
     }
 }
 
-#[derive(Debug)]
 pub struct Report<'a, C, D: DisplayReport<C>> {
     ctx: &'a C,
     diagnostics: &'a D,

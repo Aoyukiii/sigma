@@ -1,10 +1,10 @@
 use crate::core::{
-    raw_ast::{
-        Parser,
-        stmt::{Def, Stmt, StmtKind},
+    syntax::{
+        ast::raw::stmt::{Def, Stmt, StmtKind},
+        lexer::{stream::TokenStream, token::TokenKind},
+        parser::Parser,
     },
-    token::{lexer::TokenKind, stream::TokenStream},
-    utils::Span,
+    utils::span::Span,
 };
 
 impl<'a, T> Parser<'a, T>

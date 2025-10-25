@@ -1,16 +1,17 @@
 use crate::core::{
-    operator::{Infix, Prefix},
-    raw_ast::{
-        diagnostics::ParseErrorKind,
-        expr::{Annotated, Application, Expr, ExprKind, InfixExpr, Lambda, Let, PrefixExpr},
-    },
-    token::{
-        lexer::{Token, TokenKind},
-        stream::TokenStream,
+    diagnostics::errors::ParseErrorKind,
+    syntax::{
+        ast::raw::{
+            expr::{Annotated, Application, Expr, ExprKind, InfixExpr, Lambda, Let, PrefixExpr},
+            operator::{Infix, Prefix},
+        },
+        lexer::{
+            stream::TokenStream,
+            token::{Token, TokenKind},
+        },
+        parser::Parser,
     },
 };
-
-use crate::core::raw_ast::Parser;
 
 impl<'a, T> Parser<'a, T>
 where
