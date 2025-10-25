@@ -76,10 +76,10 @@ where
 
     pub fn repl_parse(&mut self) -> (TopLevel, Diagnostics) {
         self.errs.clear();
-        (self.stmts_or_expr(), std::mem::take(&mut self.errs))
+        (self.top_level(), std::mem::take(&mut self.errs))
     }
 
-    pub fn stmts_or_expr(&mut self) -> TopLevel {
+    pub fn top_level(&mut self) -> TopLevel {
         let mut stmts = Vec::new();
         while !self.tokens.is_empty() {
             let peek = &self.tokens.peek().kind;
