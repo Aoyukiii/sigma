@@ -34,10 +34,6 @@ where
         }
     }
 
-    pub fn with_tokens(&mut self, tokens: T) {
-        self.tokens = tokens;
-    }
-
     fn report(&mut self, err: ParseError) {
         self.errs.add_err(err)
     }
