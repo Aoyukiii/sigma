@@ -4,7 +4,7 @@ use crate::core::{
     operator::{Infix, Prefix},
     raw_ast::{
         diagnostics::{Diagnostics, ParseError, ParseErrorKind},
-        expr::{Annotated, Application, Expr, ExprKind, InfixExpr, Lambda, PrefixExpr},
+        expr::{Annotated, Application, Expr, ExprKind, InfixExpr, Lambda, Let, PrefixExpr},
         stmt::{Def, Stmt, StmtKind},
     },
     token::{
@@ -145,9 +145,7 @@ where
             let span = self.tokens.peek().span;
             self.report(
                 (
-                    ParseErrorKind::ExpectedExpr {
-                        tok_str: TokenKind::RParen.to_string(),
-                    },
+                    ParseErrorKind::new_expected_expr(TokenKind::RParen.to_string()),
                     span,
                 )
                     .into(),
@@ -190,16 +188,17 @@ where
                 syntax
             }
             Ok(TokenKind::RParen) => unreachable!(),
+            Ok(TokenKind::KwLet) => {
+                let var = Box::new(self.expr());
+                self.expect(TokenKind::ColonEq);
+                let value = Box::new(self.expr());
+                self.expect(TokenKind::KwIn);
+                let body = Box::new(self.expr());
+                let span = span.merge(body.span);
+                return (ExprKind::Let(Box::new(Let { var, value, body })), span).into();
+            }
             Ok(tok) => {
-                self.report(
-                    (
-                        ParseErrorKind::ExpectedExpr {
-                            tok_str: tok.to_string(),
-                        },
-                        span,
-                    )
-                        .into(),
-                );
+                self.report((ParseErrorKind::new_expected_expr(tok.to_string()), span).into());
                 Expr::new_err(span)
             }
             Err(e) => {
@@ -220,7 +219,8 @@ where
                 Ok(TokenKind::EOF)
                 | Ok(TokenKind::RParen)
                 | Ok(TokenKind::KwDef)
-                | Ok(TokenKind::ColonEq) => break,
+                | Ok(TokenKind::ColonEq)
+                | Ok(TokenKind::KwIn) => break,
                 Ok(TokenKind::Plus) => Infix::Add,
                 Ok(TokenKind::Minus) => Infix::Sub,
                 Ok(TokenKind::Star) => Infix::Mul,
@@ -240,8 +240,8 @@ where
                     // Comsume this bad token and return
                     self.report(
                         (
-                            ParseErrorKind::UnexpectedToken {
-                                tok_str: tok.to_string(),
+                            ParseErrorKind::Unexpected {
+                                unexpected: tok.to_string(),
                             },
                             span,
                         )

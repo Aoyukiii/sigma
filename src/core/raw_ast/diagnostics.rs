@@ -22,7 +22,7 @@ impl From<(ParseErrorKind, Span)> for ParseError {
 impl ParseError {
     fn unknown(span: Span) -> Self {
         Self {
-            kind: ParseErrorKind::Unknown,
+            kind: ParseErrorKind::InternalError,
             span,
         }
     }
@@ -30,14 +30,13 @@ impl ParseError {
 
 #[derive(Debug)]
 pub enum ParseErrorKind {
-    UnexpectedToken { tok_str: String },
     Expected { expected: String, found: String },
+    Unexpected { unexpected: String },
     BadToken { tok_str: String },
     UnclosedLParen,
     UnclosedRParen,
-    ExpectedExpr { tok_str: String },
     NonAssociativeOp { op_str: String },
-    Unknown,
+    InternalError,
 }
 
 impl From<LexError> for ParseError {
@@ -48,6 +47,15 @@ impl From<LexError> for ParseError {
                 span,
             },
             LexError::Unknown => Self::unknown(Span::default()),
+        }
+    }
+}
+
+impl ParseErrorKind {
+    pub fn new_expected_expr(found: String) -> Self {
+        Self::Expected {
+            expected: "expression".to_string(),
+            found,
         }
     }
 }
@@ -100,14 +108,14 @@ impl DisplayReport<&str> for Diagnostics {
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            ParseErrorKind::UnexpectedToken { tok_str } => {
-                write!(f, "Unexpected token `{tok_str}`")
-            }
             ParseErrorKind::Expected { expected, found } => {
-                write!(f, "Expect `{expected}` but found `{found}`")
+                write!(f, "Expect {expected} but found {found}")
+            }
+            ParseErrorKind::Unexpected { unexpected } => {
+                write!(f, "Unexpected {unexpected}")
             }
             ParseErrorKind::BadToken { tok_str } => {
-                write!(f, "Bad token `{tok_str}`")
+                write!(f, "Bad token {tok_str}")
             }
             ParseErrorKind::UnclosedLParen => {
                 write!(f, "Uncolsed `(`")
@@ -115,14 +123,11 @@ impl Display for ParseError {
             ParseErrorKind::UnclosedRParen => {
                 write!(f, "Unclosed `)`")
             }
-            ParseErrorKind::ExpectedExpr { tok_str } => {
-                write!(f, "Expect expression but found `{tok_str}`")
-            }
             ParseErrorKind::NonAssociativeOp { op_str } => {
-                write!(f, "Non-associative operator `{op_str}` used continuously")
+                write!(f, "Non-associative operator {op_str} used continuously")
             }
-            ParseErrorKind::Unknown => {
-                write!(f, "Unknown error")
+            ParseErrorKind::InternalError => {
+                write!(f, "Internal error")
             }
         }
     }

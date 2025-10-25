@@ -161,7 +161,33 @@ pub enum TokenKind<'a> {
 
 impl<'a> Display for TokenKind<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self) // TODO: write a full implementation instead of using Debug
+        match self {
+            Self::LParen => write!(f, "`(`"),
+            Self::RParen => write!(f, "`)`"),
+            Self::Comma => write!(f, "`,`"),
+            Self::Dot => write!(f, "`.`"),
+            Self::Colon => write!(f, "`:`"),
+            Self::Plus => write!(f, "`+`"),
+            Self::Minus => write!(f, "`-`"),
+            Self::Star => write!(f, "`*`"),
+            Self::Slash => write!(f, "`/`"),
+            Self::DStar => write!(f, "`**`"),
+            Self::Not => write!(f, "`!`"),
+            Self::Arrow => write!(f, "`->`"),
+            Self::DArrow => write!(f, "`=>`"),
+            Self::Eq => write!(f, "`=`"),
+            Self::ColonEq => write!(f, "`:=`"),
+            Self::Pipe => write!(f, "`|>`"),
+            Self::Semicolon => write!(f, "`;`"),
+            Self::KwLet => write!(f, "keyword `let`"),
+            Self::KwDef => write!(f, "keyword `def`"),
+            Self::KwIn => write!(f, "keyword `in`"),
+            Self::KwAtom => write!(f, "keyword `Atom`"),
+            Self::KwType => write!(f, "keyword `Type`"),
+            Self::Atom(it) => write!(f, "atom literal {it}"),
+            Self::Ident(it) => write!(f, "identifier {it}"),
+            Self::EOF => write!(f, "EOF"),
+        }
     }
 }
 
