@@ -63,6 +63,8 @@ pub enum TokenKind<'a> {
     Star,
     #[token("/")]
     Slash,
+    #[token("%")]
+    Percent,
     #[token("**")]
     DStar,
     #[token("!")]
@@ -110,6 +112,7 @@ impl<'a> Display for TokenKind<'a> {
             Self::Minus => write!(f, "`-`"),
             Self::Star => write!(f, "`*`"),
             Self::Slash => write!(f, "`/`"),
+            Self::Percent => write!(f, "`%`"),
             Self::DStar => write!(f, "`**`"),
             Self::Not => write!(f, "`!`"),
             Self::Arrow => write!(f, "`->`"),

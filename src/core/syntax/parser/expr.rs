@@ -113,6 +113,7 @@ where
                 Ok(TokenKind::Minus) => Infix::Sub,
                 Ok(TokenKind::Star) => Infix::Mul,
                 Ok(TokenKind::Slash) => Infix::Div,
+                Ok(TokenKind::Percent) => Infix::Mod,
                 Ok(TokenKind::Dot) => Infix::Dot,
                 Ok(TokenKind::Colon) => Infix::Colon,
                 Ok(TokenKind::DStar) => Infix::Pow,

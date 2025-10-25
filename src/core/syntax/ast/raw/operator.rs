@@ -3,15 +3,12 @@ use std::fmt::Display;
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 pub enum Precedence {
     // Lowest precedence here
-    Comma,          // ,
-    Assignment,     // := =
     TypeAnnotation, // :
-    Quantification, // ∀ ∃ λ
-    Implication,    // → ⇒
+    Implication,    // -> =>
     Disjunction,    // || ∨
     Conjunction,    // && ∧
-    Equality,       // == ≡ ≠
-    Relational,     // < ≤ > ≥
+    Equality,       // == !=
+    Relational,     // < <= > >=
     Pipe,           // |>
     Shift,          // << >>
     Additive,       // + -
@@ -70,6 +67,7 @@ pub enum Infix {
     Sub,
     Mul,
     Div,
+    Mod,
     Dot,
     Colon,
     Pow,
@@ -84,13 +82,12 @@ impl Infix {
     pub const fn binding_power(&self) -> (u8, u8) {
         match &self {
             Infix::Add | Infix::Sub => Precedence::Additive.binding_power(Associativity::Left),
-            Infix::Mul | Infix::Div => Precedence::Multiplicative.binding_power(Associativity::Left),
+            Infix::Mul | Infix::Div | Infix::Mod => Precedence::Multiplicative.binding_power(Associativity::Left),
             Infix::Dot => Precedence::Projection.binding_power(Associativity::Left),
             Infix::Colon => Precedence::TypeAnnotation.binding_power(Associativity::None),
             Infix::Pow => Precedence::Exponential.binding_power(Associativity::Right),
             Infix::Apply => Precedence::Application.binding_power(Associativity::Left),
-            Infix::Lambda => Precedence::Implication.binding_power(Associativity::Right),
-            Infix::Imply => Precedence::Implication.binding_power(Associativity::Right),
+            Infix::Lambda | Infix::Imply => Precedence::Implication.binding_power(Associativity::Right),
             Infix::Pipe => Precedence::Pipe.binding_power(Associativity::Left),
         }
     }
@@ -103,6 +100,7 @@ impl Display for Infix {
             Self::Sub => write!(f, "-"),
             Self::Mul => write!(f, "*"),
             Self::Div => write!(f, "/"),
+            Self::Mod => write!(f, "%"),
             Self::Dot => write!(f, "."),
             Self::Colon => write!(f, ":"),
             Self::Pow => write!(f, "**"),
