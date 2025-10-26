@@ -68,44 +68,44 @@ impl PrettyFmt for ExprKind {
             Self::AtomLiteral(it) => write!(w, "{}", it.yellow()),
             Self::Annotated(it) => {
                 writeln!(w, "Annotated(")?;
-                ctx.write_field_ln(w, "expr", it.expr.as_ref())?;
-                ctx.write_field_ln(w, "type", it.type_expr.as_ref())?;
-                ctx.write_indent(w)?;
+                ctx.write_field_ln(w, "expr", &it.expr)?;
+                ctx.write_field_ln(w, "type", &it.type_expr)?;
+                ctx.write_levelled_indent(w)?;
                 write!(w, ")")
             }
             Self::Application(it) => {
                 writeln!(w, "Applicaion(")?;
-                ctx.write_field_ln(w, "func", it.func.as_ref())?;
-                ctx.write_field_ln(w, "arg", it.arg.as_ref())?;
-                ctx.write_indent(w)?;
+                ctx.write_field_ln(w, "func", &it.func)?;
+                ctx.write_field_ln(w, "arg", &it.arg)?;
+                ctx.write_levelled_indent(w)?;
                 write!(w, ")")
             }
             Self::Lambda(it) => {
                 writeln!(w, "Lambda(")?;
-                ctx.write_field_ln(w, "param", it.param.as_ref())?;
-                ctx.write_field_ln(w, "body", it.body.as_ref())?;
-                ctx.write_indent(w)?;
+                ctx.write_field_ln(w, "param", &it.param)?;
+                ctx.write_field_ln(w, "body", &it.body)?;
+                ctx.write_levelled_indent(w)?;
                 write!(w, ")")
             }
             Self::Prefix(it) => {
                 writeln!(w, "({}) @ {} (", it.op.to_string().magenta(), it.op_span)?;
-                ctx.write_field_ln(w, "rhs", it.rhs.as_ref())?;
-                ctx.write_indent(w)?;
+                ctx.write_field_ln(w, "rhs", &it.rhs)?;
+                ctx.write_levelled_indent(w)?;
                 write!(w, ")")
             }
             Self::Infix(it) => {
                 writeln!(w, "({}) @ {} (", it.op.to_string().magenta(), it.op_span)?;
-                ctx.write_field_ln(w, "lhs", it.lhs.as_ref())?;
-                ctx.write_field_ln(w, "rhs", it.rhs.as_ref())?;
-                ctx.write_indent(w)?;
+                ctx.write_field_ln(w, "lhs", &it.lhs)?;
+                ctx.write_field_ln(w, "rhs", &it.rhs)?;
+                ctx.write_levelled_indent(w)?;
                 write!(w, ")")
             }
             Self::Let(it) => {
                 writeln!(w, "Let(")?;
-                ctx.write_field_ln(w, "var", it.var.as_ref())?;
-                ctx.write_field_ln(w, "value", it.value.as_ref())?;
-                ctx.write_field_ln(w, "body", it.body.as_ref())?;
-                ctx.write_indent(w)?;
+                ctx.write_field_ln(w, "var", &it.var)?;
+                ctx.write_field_ln(w, "value", &it.value)?;
+                ctx.write_field_ln(w, "body", &it.body)?;
+                ctx.write_levelled_indent(w)?;
                 write!(w, ")")
             }
             Self::Error => write!(w, "{}", "Error".red()),

@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, ops::Deref};
 
 pub struct PrettyContext<'a> {
     indent: &'a str,
@@ -20,18 +20,21 @@ impl<'a> PrettyContext<'a> {
         }
     }
 
-    pub fn write_indent(&mut self, writer: &mut impl Write) -> std::fmt::Result {
+    pub fn write_levelled_indent(&mut self, writer: &mut impl Write) -> std::fmt::Result {
         write!(writer, "{}", self.indent.repeat(self.level))
     }
 
-    pub fn write_field_ln(
+    pub fn write_field_ln<T>(
         &mut self,
         writer: &mut impl Write,
         key: &str,
-        value: &impl PrettyFmt,
-    ) -> std::fmt::Result {
+        value: &impl Deref<Target = T>,
+    ) -> std::fmt::Result
+    where
+        T: PrettyFmt,
+    {
         let mut ctx = self.indented();
-        ctx.write_indent(writer)?;
+        ctx.write_levelled_indent(writer)?;
         write!(writer, "{}: ", key)?;
         value.pretty_fmt_with_ctx(&mut ctx, writer)?;
         writeln!(writer, ",")

@@ -36,22 +36,26 @@ pub enum StmtKind {
 }
 
 impl PrettyFmt for StmtKind {
-    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
+    fn pretty_fmt_with_ctx(
+        &self,
+        ctx: &mut PrettyContext,
+        w: &mut impl std::fmt::Write,
+    ) -> std::fmt::Result {
         match self {
             Self::Def(it) => {
                 writeln!(w, "Let(")?;
-                ctx.write_field_ln(w, "var", it.var.as_ref())?;
-                ctx.write_field_ln(w, "value", it.value.as_ref())?;
-                ctx.write_indent(w)?;
+                ctx.write_field_ln(w, "var", &it.var)?;
+                ctx.write_field_ln(w, "value", &it.value)?;
+                ctx.write_levelled_indent(w)?;
                 write!(w, ")")?;
             }
             Self::Eval(it) => {
                 writeln!(w, "Eval(")?;
                 let mut indented = ctx.indented();
-                indented.write_indent(w)?;
+                indented.write_levelled_indent(w)?;
                 it.pretty_fmt_with_ctx(&mut ctx.indented(), w)?;
                 writeln!(w, "")?;
-                ctx.write_indent(w)?;
+                ctx.write_levelled_indent(w)?;
                 write!(w, ")")?;
             }
             Self::Error => {
