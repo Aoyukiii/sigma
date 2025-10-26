@@ -51,9 +51,9 @@ impl PrettyFmt for StmtKind {
             }
             Self::Eval(it) => {
                 writeln!(w, "Eval(")?;
-                let mut indented = ctx.indented();
+                let mut indented = ctx.indent();
                 indented.write_levelled_indent(w)?;
-                it.pretty_fmt_with_ctx(&mut ctx.indented(), w)?;
+                it.pretty_fmt_with_ctx(&mut ctx.indent(), w)?;
                 writeln!(w, "")?;
                 ctx.write_levelled_indent(w)?;
                 write!(w, ")")?;

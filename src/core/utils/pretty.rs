@@ -13,7 +13,7 @@ impl<'a> PrettyContext<'a> {
         }
     }
 
-    pub fn indented(&'a self) -> Self {
+    pub fn indent(&'a self) -> Self {
         Self {
             indent: self.indent,
             level: self.level + 1,
@@ -33,7 +33,7 @@ impl<'a> PrettyContext<'a> {
     where
         T: PrettyFmt,
     {
-        let mut ctx = self.indented();
+        let mut ctx = self.indent();
         ctx.write_levelled_indent(writer)?;
         write!(writer, "{}: ", key)?;
         value.pretty_fmt_with_ctx(&mut ctx, writer)?;
