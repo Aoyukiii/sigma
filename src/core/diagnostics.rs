@@ -1,12 +1,12 @@
 use colored::Colorize;
 
 use crate::core::{
-    diagnostics::{errors::ParseError, display_report::DisplayReport},
+    diagnostics::{display_report::DisplayReport, errors::ParseError},
     utils::cursor::write_codeblock,
 };
 
-pub mod errors;
 pub mod display_report;
+pub mod errors;
 
 #[derive(Debug)]
 pub struct Diagnostics {

@@ -23,7 +23,11 @@ impl From<(ExprKind, Span)> for Expr {
 }
 
 impl PrettyFmt for Expr {
-    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
+    fn pretty_fmt_with_ctx(
+        &self,
+        ctx: &mut PrettyContext,
+        w: &mut impl std::fmt::Write,
+    ) -> std::fmt::Result {
         self.kind.pretty_fmt_with_ctx(ctx, w)?;
         write!(w, " @ {}", self.span)
     }
@@ -60,7 +64,11 @@ pub enum ExprKind {
 }
 
 impl PrettyFmt for ExprKind {
-    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
+    fn pretty_fmt_with_ctx(
+        &self,
+        ctx: &mut PrettyContext,
+        w: &mut impl std::fmt::Write,
+    ) -> std::fmt::Result {
         match self {
             Self::Ident(it) => write!(w, "{}", it.to_string().magenta()),
             Self::Atom => write!(w, "{}", "Atom".yellow()),
