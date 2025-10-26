@@ -5,7 +5,10 @@ use std::{
 
 use colored::Colorize;
 
-use crate::core::utils::cursor::{Cursor, ToCursor};
+use crate::core::utils::{
+    cursor::{Cursor, ToCursor},
+    pretty::PrettyFmt,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Span {
@@ -54,12 +57,22 @@ impl Debug for Span {
     }
 }
 
-impl Display for Span {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PrettyFmt for Span {
+    fn pretty_fmt_with_ctx(
+        &self,
+        _: &mut super::pretty::PrettyContext,
+        w: &mut dyn std::fmt::Write,
+    ) -> std::fmt::Result {
         write!(
-            f,
+            w,
             "{}",
             format!("{}..{}", self.start, self.end).to_string().yellow()
         )
+    }
+}
+
+impl Display for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.pretty_fmt(f)
     }
 }

@@ -5,7 +5,7 @@ use colored::Colorize;
 use crate::core::{
     syntax::ast::raw::expr::Expr,
     utils::{
-        pretty::{PrettyContext, PrettyFmt},
+        pretty::{NodeFormatter, PrettyContext, PrettyFmt},
         span::Span,
     },
 };
@@ -39,24 +39,21 @@ impl PrettyFmt for StmtKind {
     fn pretty_fmt_with_ctx(
         &self,
         ctx: &mut PrettyContext,
-        w: &mut impl std::fmt::Write,
+        w: &mut dyn std::fmt::Write,
     ) -> std::fmt::Result {
         match self {
             Self::Def(it) => {
-                writeln!(w, "Let(")?;
-                ctx.write_field_ln(w, "var", &it.var)?;
-                ctx.write_field_ln(w, "value", &it.value)?;
-                ctx.write_levelled_indent(w)?;
-                write!(w, ")")?;
+                NodeFormatter::new(ctx, w)
+                    .header("Let")?
+                    .field("var", &it.var)?
+                    .field("value", &it.value)?
+                    .finish()?;
             }
             Self::Eval(it) => {
-                writeln!(w, "Eval(")?;
-                let mut indented = ctx.indent();
-                indented.write_levelled_indent(w)?;
-                it.pretty_fmt_with_ctx(&mut ctx.indent(), w)?;
-                writeln!(w, "")?;
-                ctx.write_levelled_indent(w)?;
-                write!(w, ")")?;
+                NodeFormatter::new(ctx, w)
+                    .header("Eval")?
+                    .content(it)?
+                    .finish()?;
             }
             Self::Error => {
                 write!(w, "{}", "Error".red())?;
@@ -65,7 +62,7 @@ impl PrettyFmt for StmtKind {
         Ok(())
     }
 
-    fn pretty_fmt(&self, w: &mut impl std::fmt::Write) -> std::fmt::Result {
+    fn pretty_fmt(&self, w: &mut dyn std::fmt::Write) -> std::fmt::Result {
         write!(w, "{} ", "[Stmt]".yellow())?;
         self.pretty_fmt_with_ctx(&mut PrettyContext::new(), w)
     }

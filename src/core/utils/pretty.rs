@@ -20,31 +20,63 @@ impl<'a> PrettyContext<'a> {
         }
     }
 
-    pub fn write_levelled_indent(&mut self, writer: &mut impl Write) -> std::fmt::Result {
+    pub fn write_levelled_indent(&mut self, writer: &mut dyn Write) -> std::fmt::Result {
         write!(writer, "{}", self.indent.repeat(self.level))
-    }
-
-    pub fn write_field_ln<T>(
-        &mut self,
-        writer: &mut impl Write,
-        key: &str,
-        value: &impl Deref<Target = T>,
-    ) -> std::fmt::Result
-    where
-        T: PrettyFmt,
-    {
-        let mut ctx = self.indent();
-        ctx.write_levelled_indent(writer)?;
-        write!(writer, "{}: ", key)?;
-        value.pretty_fmt_with_ctx(&mut ctx, writer)?;
-        writeln!(writer, ",")
     }
 }
 
 pub trait PrettyFmt {
-    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut impl Write) -> std::fmt::Result;
+    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut dyn Write) -> std::fmt::Result;
 
-    fn pretty_fmt(&self, f: &mut impl Write) -> std::fmt::Result {
-        self.pretty_fmt_with_ctx(&mut PrettyContext::new(), f)
+    fn pretty_fmt(&self, w: &mut dyn Write) -> std::fmt::Result {
+        self.pretty_fmt_with_ctx(&mut PrettyContext::new(), w)
+    }
+}
+
+impl<T> PrettyFmt for T
+where
+    T: Deref,
+    T::Target: PrettyFmt,
+{
+    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut dyn Write) -> std::fmt::Result {
+        self.deref().pretty_fmt_with_ctx(ctx, w)
+    }
+}
+
+pub struct NodeFormatter<'a, 'b> {
+    ctx: &'a mut PrettyContext<'b>,
+    writer: &'a mut dyn Write,
+}
+
+impl<'a, 'b> NodeFormatter<'a, 'b> {
+    pub fn new(ctx: &'a mut PrettyContext<'b>, writer: &'a mut dyn Write) -> Self {
+        Self { ctx, writer }
+    }
+
+    pub fn header(self, header: &'a str) -> Result<Self, std::fmt::Error> {
+        writeln!(self.writer, "{}(", header)?;
+        Ok(self)
+    }
+
+    pub fn field(self, key: &'a str, value: &impl PrettyFmt) -> Result<Self, std::fmt::Error> {
+        let mut ctx = self.ctx.indent();
+        ctx.write_levelled_indent(self.writer)?;
+        write!(self.writer, "{}: ", key)?;
+        value.pretty_fmt_with_ctx(&mut ctx, self.writer)?;
+        writeln!(self.writer, ",")?;
+        Ok(self)
+    }
+
+    pub fn content(self, content: &impl PrettyFmt) -> Result<Self, std::fmt::Error> {
+        let mut ctx = self.ctx.indent();
+        ctx.write_levelled_indent(self.writer)?;
+        content.pretty_fmt_with_ctx(&mut ctx, self.writer)?;
+        writeln!(self.writer, "")?;
+        Ok(self)
+    }
+
+    pub fn finish(self) -> std::fmt::Result {
+        self.ctx.write_levelled_indent(self.writer)?;
+        write!(self.writer, ")")
     }
 }

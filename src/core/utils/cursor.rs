@@ -62,7 +62,7 @@ where
     count
 }
 
-fn write_underline_ln(w: &mut impl Write, begin: usize, end: usize) -> std::fmt::Result {
+fn write_underline_ln(w: &mut dyn Write, begin: usize, end: usize) -> std::fmt::Result {
     writeln!(
         w,
         "{}{}",
@@ -71,7 +71,7 @@ fn write_underline_ln(w: &mut impl Write, begin: usize, end: usize) -> std::fmt:
     )
 }
 
-pub fn write_codeblock(w: &mut impl Write, src: &str, span: Span) -> std::fmt::Result {
+pub fn write_codeblock(w: &mut dyn Write, src: &str, span: Span) -> std::fmt::Result {
     let lines: Vec<_> = src.split("\n").collect();
     let (begin, end) = span.to_cursors(src);
     let lines = &lines[begin.line..=end.line];

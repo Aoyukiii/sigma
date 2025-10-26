@@ -5,7 +5,7 @@ use colored::Colorize;
 use crate::core::{
     syntax::ast::raw::operator::{Infix, Prefix},
     utils::{
-        pretty::{PrettyContext, PrettyFmt},
+        pretty::{NodeFormatter, PrettyContext, PrettyFmt},
         span::Span,
     },
 };
@@ -26,7 +26,7 @@ impl PrettyFmt for Expr {
     fn pretty_fmt_with_ctx(
         &self,
         ctx: &mut PrettyContext,
-        w: &mut impl std::fmt::Write,
+        w: &mut dyn std::fmt::Write,
     ) -> std::fmt::Result {
         self.kind.pretty_fmt_with_ctx(ctx, w)?;
         write!(w, " @ {}", self.span)
@@ -67,55 +67,54 @@ impl PrettyFmt for ExprKind {
     fn pretty_fmt_with_ctx(
         &self,
         ctx: &mut PrettyContext,
-        w: &mut impl std::fmt::Write,
+        w: &mut dyn std::fmt::Write,
     ) -> std::fmt::Result {
         match self {
             Self::Ident(it) => write!(w, "{}", it.to_string().magenta()),
             Self::Atom => write!(w, "{}", "Atom".yellow()),
             Self::Type => write!(w, "{}", "Type".yellow()),
             Self::AtomLiteral(it) => write!(w, "{}", it.yellow()),
-            Self::Annotated(it) => {
-                writeln!(w, "Annotated(")?;
-                ctx.write_field_ln(w, "expr", &it.expr)?;
-                ctx.write_field_ln(w, "type", &it.type_expr)?;
-                ctx.write_levelled_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Application(it) => {
-                writeln!(w, "Applicaion(")?;
-                ctx.write_field_ln(w, "func", &it.func)?;
-                ctx.write_field_ln(w, "arg", &it.arg)?;
-                ctx.write_levelled_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Lambda(it) => {
-                writeln!(w, "Lambda(")?;
-                ctx.write_field_ln(w, "param", &it.param)?;
-                ctx.write_field_ln(w, "body", &it.body)?;
-                ctx.write_levelled_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Prefix(it) => {
-                writeln!(w, "({}) @ {} (", it.op.to_string().magenta(), it.op_span)?;
-                ctx.write_field_ln(w, "rhs", &it.rhs)?;
-                ctx.write_levelled_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Infix(it) => {
-                writeln!(w, "({}) @ {} (", it.op.to_string().magenta(), it.op_span)?;
-                ctx.write_field_ln(w, "lhs", &it.lhs)?;
-                ctx.write_field_ln(w, "rhs", &it.rhs)?;
-                ctx.write_levelled_indent(w)?;
-                write!(w, ")")
-            }
-            Self::Let(it) => {
-                writeln!(w, "Let(")?;
-                ctx.write_field_ln(w, "var", &it.var)?;
-                ctx.write_field_ln(w, "value", &it.value)?;
-                ctx.write_field_ln(w, "body", &it.body)?;
-                ctx.write_levelled_indent(w)?;
-                write!(w, ")")
-            }
+
+            Self::Annotated(it) => NodeFormatter::new(ctx, w)
+                .header("Annotated")?
+                .field("expr", &it.expr)?
+                .field("type", &it.type_expr)?
+                .finish(),
+            Self::Application(it) => NodeFormatter::new(ctx, w)
+                .header("Application")?
+                .field("func", &it.func)?
+                .field("arg", &it.arg)?
+                .finish(),
+            Self::Lambda(it) => NodeFormatter::new(ctx, w)
+                .header("Lambda")?
+                .field("param", &it.param)?
+                .field("body", &it.body)?
+                .finish(),
+            Self::Prefix(it) => NodeFormatter::new(ctx, w)
+                .header(&format!(
+                    "({}) @ {}",
+                    it.op.to_string().magenta(),
+                    it.op_span
+                ))?
+                .field("op_span", &it.op_span)?
+                .field("rhs", &it.rhs)?
+                .finish(),
+            Self::Infix(it) => NodeFormatter::new(ctx, w)
+                .header(&format!(
+                    "({}) @ {} ",
+                    it.op.to_string().magenta(),
+                    it.op_span
+                ))?
+                .field("op_span", &it.op_span)?
+                .field("lhs", &it.lhs)?
+                .field("rhs", &it.rhs)?
+                .finish(),
+            Self::Let(it) => NodeFormatter::new(ctx, w)
+                .header("Let")?
+                .field("var", &it.var)?
+                .field("value", &it.value)?
+                .field("body", &it.body)?
+                .finish(),
             Self::Error => write!(w, "{}", "Error".red()),
         }
     }

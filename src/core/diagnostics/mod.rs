@@ -38,7 +38,7 @@ impl Default for Diagnostics {
 }
 
 impl DisplayReport<&str> for Diagnostics {
-    fn fmt(&self, w: &mut impl std::fmt::Write, ctx: &&str) -> std::fmt::Result {
+    fn fmt(&self, w: &mut dyn std::fmt::Write, ctx: &&str) -> std::fmt::Result {
         let errs = &self.errs;
         for err in errs {
             writeln!(
