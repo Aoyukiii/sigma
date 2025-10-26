@@ -5,7 +5,7 @@ use colored::Colorize;
 use crate::core::{
     syntax::ast::raw::operator::{Infix, Prefix},
     utils::{
-        pretty::{PrettyContext, PrettyPrint},
+        pretty::{PrettyContext, PrettyFmt},
         span::Span,
     },
 };
@@ -22,16 +22,16 @@ impl From<(ExprKind, Span)> for Expr {
     }
 }
 
-impl PrettyPrint for Expr {
-    fn print_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
-        self.kind.print_ctx(ctx, w)?;
+impl PrettyFmt for Expr {
+    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
+        self.kind.pretty_fmt_with_ctx(ctx, w)?;
         write!(w, " @ {}", self.span)
     }
 }
 
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.print(f)
+        self.pretty_fmt(f)
     }
 }
 
@@ -59,8 +59,8 @@ pub enum ExprKind {
     Error,
 }
 
-impl PrettyPrint for ExprKind {
-    fn print_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
+impl PrettyFmt for ExprKind {
+    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
         match self {
             Self::Ident(it) => write!(w, "{}", it.to_string().magenta()),
             Self::Atom => write!(w, "{}", "Atom".yellow()),
@@ -115,7 +115,7 @@ impl PrettyPrint for ExprKind {
 
 impl Display for ExprKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.print(f)
+        self.pretty_fmt(f)
     }
 }
 

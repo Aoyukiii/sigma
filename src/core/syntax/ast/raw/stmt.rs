@@ -5,7 +5,7 @@ use colored::Colorize;
 use crate::core::{
     syntax::ast::raw::expr::Expr,
     utils::{
-        pretty::{PrettyContext, PrettyPrint},
+        pretty::{PrettyContext, PrettyFmt},
         span::Span,
     },
 };
@@ -35,8 +35,8 @@ pub enum StmtKind {
     Error,
 }
 
-impl PrettyPrint for StmtKind {
-    fn print_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
+impl PrettyFmt for StmtKind {
+    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut impl std::fmt::Write) -> std::fmt::Result {
         match self {
             Self::Def(it) => {
                 writeln!(w, "Let(")?;
@@ -49,7 +49,7 @@ impl PrettyPrint for StmtKind {
                 writeln!(w, "Eval(")?;
                 let mut indented = ctx.indented();
                 indented.write_indent(w)?;
-                it.print_ctx(&mut ctx.indented(), w)?;
+                it.pretty_fmt_with_ctx(&mut ctx.indented(), w)?;
                 writeln!(w, "")?;
                 ctx.write_indent(w)?;
                 write!(w, ")")?;
@@ -61,15 +61,15 @@ impl PrettyPrint for StmtKind {
         Ok(())
     }
 
-    fn print(&self, w: &mut impl std::fmt::Write) -> std::fmt::Result {
+    fn pretty_fmt(&self, w: &mut impl std::fmt::Write) -> std::fmt::Result {
         write!(w, "{} ", "[Stmt]".yellow())?;
-        self.print_ctx(&mut PrettyContext::new(), w)
+        self.pretty_fmt_with_ctx(&mut PrettyContext::new(), w)
     }
 }
 
 impl Display for StmtKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.print(f)
+        self.pretty_fmt(f)
     }
 }
 
