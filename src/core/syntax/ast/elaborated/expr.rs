@@ -10,6 +10,12 @@ pub struct Expr {
     id: ExprId,
 }
 
+impl From<(ExprKind, Span, ExprId)> for Expr {
+    fn from((kind, span, id): (ExprKind, Span, ExprId)) -> Self {
+        Self { kind, span, id }
+    }
+}
+
 #[derive(Debug)]
 pub enum ExprKind {
     Var(DebruijnId),
