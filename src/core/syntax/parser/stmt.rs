@@ -1,6 +1,6 @@
 use crate::core::{
     syntax::{
-        ast::raw::stmt::{Def, Stmt, StmtKind},
+        ast::raw::{Stmt, StmtKind, stmt::Def},
         lexer::{stream::TokenStream, token::TokenKind},
         parser::Parser,
     },
