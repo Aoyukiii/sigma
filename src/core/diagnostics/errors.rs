@@ -75,7 +75,7 @@ impl Display for ParseError {
                 write!(f, "Unclosed `)`")
             }
             ParseErrorKind::NonAssociativeOp { op_str } => {
-                write!(f, "Non-associative operator {op_str} used continuously")
+                write!(f, "Non-associative operator `{op_str}` used continuously")
             }
             ParseErrorKind::InternalError => {
                 write!(f, "Internal error")
