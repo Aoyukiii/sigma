@@ -39,32 +39,32 @@ impl PrettyFmt for StmtKind {
     fn pretty_fmt_with_ctx(
         &self,
         ctx: &mut PrettyContext,
-        w: &mut dyn std::fmt::Write,
+        f: &mut std::fmt::Formatter,
     ) -> std::fmt::Result {
         match self {
             Self::Def(it) => {
-                NodeFormatter::new(ctx, w)
+                NodeFormatter::new(ctx, f)
                     .header("Let")?
                     .field("var", &it.var)?
                     .field("value", &it.value)?
                     .finish()?;
             }
             Self::Eval(it) => {
-                NodeFormatter::new(ctx, w)
+                NodeFormatter::new(ctx, f)
                     .header("Eval")?
                     .content(it)?
                     .finish()?;
             }
             Self::Error => {
-                write!(w, "{}", "Error".red())?;
+                write!(f, "{}", "Error".red())?;
             }
         }
         Ok(())
     }
 
-    fn pretty_fmt(&self, w: &mut dyn std::fmt::Write) -> std::fmt::Result {
-        write!(w, "{} ", "[Stmt]".yellow())?;
-        self.pretty_fmt_with_ctx(&mut PrettyContext::new(), w)
+    fn pretty_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ", "[Stmt]".yellow())?;
+        self.pretty_fmt_with_ctx(&mut PrettyContext::new(), f)
     }
 }
 

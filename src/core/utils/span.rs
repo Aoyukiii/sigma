@@ -61,10 +61,10 @@ impl PrettyFmt for Span {
     fn pretty_fmt_with_ctx(
         &self,
         _: &mut super::pretty::PrettyContext,
-        w: &mut dyn std::fmt::Write,
+        f: &mut std::fmt::Formatter,
     ) -> std::fmt::Result {
         write!(
-            w,
+            f,
             "{}",
             format!("{}..{}", self.start, self.end).to_string().yellow()
         )

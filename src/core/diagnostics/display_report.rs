@@ -1,7 +1,7 @@
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Formatter};
 
 pub trait DisplayReport<C>: Sized {
-    fn fmt(&self, w: &mut dyn Write, ctx: &C) -> std::fmt::Result;
+    fn fmt(&self, f: &mut Formatter, ctx: &C) -> std::fmt::Result;
 
     fn report<'a>(&'a self, ctx: &'a C) -> Report<'a, C, Self> {
         Report {

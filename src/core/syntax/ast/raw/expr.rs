@@ -26,10 +26,10 @@ impl PrettyFmt for Expr {
     fn pretty_fmt_with_ctx(
         &self,
         ctx: &mut PrettyContext,
-        w: &mut dyn std::fmt::Write,
+        f: &mut std::fmt::Formatter,
     ) -> std::fmt::Result {
-        self.kind.pretty_fmt_with_ctx(ctx, w)?;
-        write!(w, " @ {}", self.span)
+        self.kind.pretty_fmt_with_ctx(ctx, f)?;
+        write!(f, " @ {}", self.span)
     }
 }
 
@@ -67,30 +67,30 @@ impl PrettyFmt for ExprKind {
     fn pretty_fmt_with_ctx(
         &self,
         ctx: &mut PrettyContext,
-        w: &mut dyn std::fmt::Write,
+        f: &mut std::fmt::Formatter,
     ) -> std::fmt::Result {
         match self {
-            Self::Ident(it) => write!(w, "{}", it.to_string().magenta()),
-            Self::Atom => write!(w, "{}", "Atom".yellow()),
-            Self::Type => write!(w, "{}", "Type".yellow()),
-            Self::AtomLiteral(it) => write!(w, "{}", it.yellow()),
+            Self::Ident(it) => write!(f, "{}", it.to_string().magenta()),
+            Self::Atom => write!(f, "{}", "Atom".yellow()),
+            Self::Type => write!(f, "{}", "Type".yellow()),
+            Self::AtomLiteral(it) => write!(f, "{}", it.yellow()),
 
-            Self::Annotated(it) => NodeFormatter::new(ctx, w)
+            Self::Annotated(it) => NodeFormatter::new(ctx, f)
                 .header("Annotated")?
                 .field("expr", &it.expr)?
                 .field("type", &it.type_expr)?
                 .finish(),
-            Self::Application(it) => NodeFormatter::new(ctx, w)
+            Self::Application(it) => NodeFormatter::new(ctx, f)
                 .header("Application")?
                 .field("func", &it.func)?
                 .field("arg", &it.arg)?
                 .finish(),
-            Self::Lambda(it) => NodeFormatter::new(ctx, w)
+            Self::Lambda(it) => NodeFormatter::new(ctx, f)
                 .header("Lambda")?
                 .field("param", &it.param)?
                 .field("body", &it.body)?
                 .finish(),
-            Self::Prefix(it) => NodeFormatter::new(ctx, w)
+            Self::Prefix(it) => NodeFormatter::new(ctx, f)
                 .header(&format!(
                     "({}) @ {}",
                     it.op.to_string().magenta(),
@@ -99,7 +99,7 @@ impl PrettyFmt for ExprKind {
                 .field("op_span", &it.op_span)?
                 .field("rhs", &it.rhs)?
                 .finish(),
-            Self::Infix(it) => NodeFormatter::new(ctx, w)
+            Self::Infix(it) => NodeFormatter::new(ctx, f)
                 .header(&format!(
                     "({}) @ {} ",
                     it.op.to_string().magenta(),
@@ -109,13 +109,13 @@ impl PrettyFmt for ExprKind {
                 .field("lhs", &it.lhs)?
                 .field("rhs", &it.rhs)?
                 .finish(),
-            Self::Let(it) => NodeFormatter::new(ctx, w)
+            Self::Let(it) => NodeFormatter::new(ctx, f)
                 .header("Let")?
                 .field("var", &it.var)?
                 .field("value", &it.value)?
                 .field("body", &it.body)?
                 .finish(),
-            Self::Error => write!(w, "{}", "Error".red()),
+            Self::Error => write!(f, "{}", "Error".red()),
         }
     }
 }

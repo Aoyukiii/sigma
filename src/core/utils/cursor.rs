@@ -1,4 +1,4 @@
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Formatter};
 
 use colored::Colorize;
 
@@ -62,16 +62,16 @@ where
     count
 }
 
-fn write_underline_ln(w: &mut dyn Write, begin: usize, end: usize) -> std::fmt::Result {
+fn write_underline_ln(f: &mut Formatter, begin: usize, end: usize) -> std::fmt::Result {
     writeln!(
-        w,
+        f,
         "{}{}",
         " ".repeat(begin),
         "^".repeat((end - begin).max(1)).bold().red()
     )
 }
 
-pub fn write_codeblock(w: &mut dyn Write, src: &str, span: Span) -> std::fmt::Result {
+pub fn write_codeblock(f: &mut Formatter, src: &str, span: Span) -> std::fmt::Result {
     let lines: Vec<_> = src.split("\n").collect();
     let (begin, end) = span.to_cursors(src);
     let lines = &lines[begin.line..=end.line];
@@ -89,10 +89,10 @@ pub fn write_codeblock(w: &mut dyn Write, src: &str, span: Span) -> std::fmt::Re
             format!("{:>width$} | ", line_num, width = line_num_width).bright_black();
 
         // code line
-        writeln!(w, "{}{}", formatted_line_num, line)?;
+        writeln!(f, "{}{}", formatted_line_num, line)?;
 
         // padding
-        write!(w, "{}", " ".repeat(formatted_line_num.len()))?;
+        write!(f, "{}", " ".repeat(formatted_line_num.len()))?;
 
         let (underline_start, underline_end) = match (i, total_lines) {
             (0, 1) => (begin.col, end.col),                 // single line
@@ -101,7 +101,7 @@ pub fn write_codeblock(w: &mut dyn Write, src: &str, span: Span) -> std::fmt::Re
             _ => (0, line.len()),                           // other lines
         };
 
-        write_underline_ln(w, underline_start, underline_end)?;
+        write_underline_ln(f, underline_start, underline_end)?;
     }
 
     Ok(())

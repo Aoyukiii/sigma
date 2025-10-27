@@ -1,4 +1,4 @@
-use std::{fmt::Write, ops::Deref};
+use std::{fmt::Formatter, ops::Deref};
 
 pub struct PrettyContext<'a> {
     indent: &'a str,
@@ -20,16 +20,16 @@ impl<'a> PrettyContext<'a> {
         }
     }
 
-    pub fn write_levelled_indent(&mut self, writer: &mut dyn Write) -> std::fmt::Result {
+    pub fn write_levelled_indent(&mut self, writer: &mut Formatter) -> std::fmt::Result {
         write!(writer, "{}", self.indent.repeat(self.level))
     }
 }
 
 pub trait PrettyFmt {
-    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut dyn Write) -> std::fmt::Result;
+    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, f: &mut Formatter) -> std::fmt::Result;
 
-    fn pretty_fmt(&self, w: &mut dyn Write) -> std::fmt::Result {
-        self.pretty_fmt_with_ctx(&mut PrettyContext::new(), w)
+    fn pretty_fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        self.pretty_fmt_with_ctx(&mut PrettyContext::new(), f)
     }
 }
 
@@ -38,18 +38,18 @@ where
     T: Deref,
     T::Target: PrettyFmt,
 {
-    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, w: &mut dyn Write) -> std::fmt::Result {
-        self.deref().pretty_fmt_with_ctx(ctx, w)
+    fn pretty_fmt_with_ctx(&self, ctx: &mut PrettyContext, f: &mut Formatter) -> std::fmt::Result {
+        self.deref().pretty_fmt_with_ctx(ctx, f)
     }
 }
 
-pub struct NodeFormatter<'a, 'b> {
+pub struct NodeFormatter<'a, 'b, 'c> {
     ctx: &'a mut PrettyContext<'b>,
-    writer: &'a mut dyn Write,
+    writer: &'a mut Formatter<'c>,
 }
 
-impl<'a, 'b> NodeFormatter<'a, 'b> {
-    pub fn new(ctx: &'a mut PrettyContext<'b>, writer: &'a mut dyn Write) -> Self {
+impl<'a, 'b, 'c> NodeFormatter<'a, 'b, 'c> {
+    pub fn new(ctx: &'a mut PrettyContext<'b>, writer: &'a mut Formatter<'c>) -> Self {
         Self { ctx, writer }
     }
 

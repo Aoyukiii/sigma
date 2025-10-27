@@ -38,16 +38,16 @@ impl Default for Diagnostics {
 }
 
 impl DisplayReport<&str> for Diagnostics {
-    fn fmt(&self, w: &mut dyn std::fmt::Write, ctx: &&str) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter, ctx: &&str) -> std::fmt::Result {
         let errs = &self.errs;
         for err in errs {
             writeln!(
-                w,
+                f,
                 "{} {}",
                 format!("[repl:{}]", err.span.to_cursors(ctx).0).underline(),
                 err.to_string().red()
             )?;
-            write_codeblock(w, ctx, err.span)?;
+            write_codeblock(f, ctx, err.span)?;
         }
         Ok(())
     }
