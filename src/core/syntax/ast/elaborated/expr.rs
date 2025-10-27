@@ -1,4 +1,2 @@
 #[derive(Debug)]
-pub enum Expr {
-    
-}
+pub enum Expr {}
