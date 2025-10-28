@@ -2,7 +2,7 @@ use crate::core::{
     diagnostics::errors::ParseErrorKind,
     syntax::{
         ast::raw::{
-            expr::{Annotated, Application, Expr, ExprKind, InfixExpr, Lambda, Let, PrefixExpr},
+            expr::{Annotated, Application, RawExpr, RawExprKind, InfixExpr, Lambda, Let, PrefixExpr},
             operator::{Infix, Prefix},
         },
         lexer::{
@@ -17,7 +17,7 @@ impl<'a, T> Parser<'a, T>
 where
     T: TokenStream<'a>,
 {
-    pub fn expr(&mut self) -> Expr {
+    pub fn expr(&mut self) -> RawExpr {
         let expr = self.expr_bp(0);
         if self.tokens.peek_is(TokenKind::RParen) {
             // error recovery for `)`
@@ -28,7 +28,7 @@ where
         expr
     }
 
-    pub fn expr_bp(&mut self, min_bp: u8) -> Expr {
+    pub fn expr_bp(&mut self, min_bp: u8) -> RawExpr {
         if self.tokens.peek_is(TokenKind::RParen) {
             let span = self.tokens.peek().span;
             self.report(
@@ -38,15 +38,15 @@ where
                 )
                     .into(),
             );
-            return Expr::new_err(span);
+            return RawExpr::new_err(span);
         }
 
         let Token { kind: next, span } = self.tokens.next();
         let lhs = match next {
-            Ok(TokenKind::Atom(it)) => (ExprKind::AtomLiteral(it.to_string()), span).into(),
-            Ok(TokenKind::Ident(it)) => (ExprKind::Ident(it.to_string()), span).into(),
-            Ok(TokenKind::KwAtom) => (ExprKind::Atom, span).into(),
-            Ok(TokenKind::KwType) => (ExprKind::Type, span).into(),
+            Ok(TokenKind::Atom(it)) => (RawExprKind::AtomLiteral(it.to_string()), span).into(),
+            Ok(TokenKind::Ident(it)) => (RawExprKind::Ident(it.to_string()), span).into(),
+            Ok(TokenKind::KwAtom) => (RawExprKind::Atom, span).into(),
+            Ok(TokenKind::KwType) => (RawExprKind::Type, span).into(),
             Ok(TokenKind::Plus) | Ok(TokenKind::Minus) | Ok(TokenKind::Not) => {
                 let op = match next.unwrap() {
                     TokenKind::Plus => Prefix::Plus,
@@ -59,7 +59,7 @@ where
                 let rhs = self.expr_bp(r_bp);
                 let span = op_span.merge(rhs.span);
                 (
-                    ExprKind::Prefix(Box::new(PrefixExpr {
+                    RawExprKind::Prefix(Box::new(PrefixExpr {
                         op,
                         op_span,
                         rhs: Box::new(rhs),
@@ -83,22 +83,22 @@ where
                 self.expect(TokenKind::KwIn);
                 let body = Box::new(self.expr());
                 let span = span.merge(body.span);
-                return (ExprKind::Let(Box::new(Let { var, value, body })), span).into();
+                return (RawExprKind::Let(Box::new(Let { var, value, body })), span).into();
             }
             Ok(tok) => {
                 self.report((ParseErrorKind::new_expected_expr(tok.to_string()), span).into());
-                Expr::new_err(span)
+                RawExpr::new_err(span)
             }
             Err(e) => {
                 self.report(e.into());
-                Expr::new_err(span)
+                RawExpr::new_err(span)
             }
         };
 
         self.expr_bp_with_lhs(min_bp, lhs)
     }
 
-    fn expr_bp_with_lhs(&mut self, min_bp: u8, lhs: Expr) -> Expr {
+    fn expr_bp_with_lhs(&mut self, min_bp: u8, lhs: RawExpr) -> RawExpr {
         let mut lhs = lhs;
         loop {
             let Token { kind: peek, span } = &self.tokens.peek();
@@ -165,7 +165,7 @@ where
                 let rhs = self.expr_bp(r_bp);
                 let span = lhs.span.merge(rhs.span);
                 lhs = (
-                    ExprKind::Application(Box::new(Application {
+                    RawExprKind::Application(Box::new(Application {
                         func: Box::new(lhs),
                         arg: Box::new(rhs),
                     })),
@@ -181,17 +181,17 @@ where
 
             lhs = (
                 if op == Infix::Colon {
-                    ExprKind::Annotated(Box::new(Annotated {
+                    RawExprKind::Annotated(Box::new(Annotated {
                         expr: Box::new(lhs),
                         type_expr: Box::new(rhs),
                     }))
                 } else if op == Infix::Lambda {
-                    ExprKind::Lambda(Box::new(Lambda {
+                    RawExprKind::Lambda(Box::new(Lambda {
                         param: Box::new(lhs),
                         body: Box::new(rhs),
                     }))
                 } else {
-                    ExprKind::Infix(Box::new(InfixExpr {
+                    RawExprKind::Infix(Box::new(InfixExpr {
                         op,
                         op_span,
                         lhs: Box::new(lhs),

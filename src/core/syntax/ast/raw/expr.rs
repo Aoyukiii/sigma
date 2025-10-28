@@ -11,18 +11,18 @@ use crate::core::{
 };
 
 #[derive(Debug)]
-pub struct Expr {
-    pub kind: ExprKind,
+pub struct RawExpr {
+    pub kind: RawExprKind,
     pub span: Span,
 }
 
-impl From<(ExprKind, Span)> for Expr {
-    fn from((kind, span): (ExprKind, Span)) -> Self {
+impl From<(RawExprKind, Span)> for RawExpr {
+    fn from((kind, span): (RawExprKind, Span)) -> Self {
         Self { kind, span }
     }
 }
 
-impl PrettyFmt for Expr {
+impl PrettyFmt for RawExpr {
     fn pretty_fmt_with_ctx(
         &self,
         ctx: &mut PrettyContext,
@@ -33,23 +33,23 @@ impl PrettyFmt for Expr {
     }
 }
 
-impl Display for Expr {
+impl Display for RawExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.pretty_fmt(f)
     }
 }
 
-impl Expr {
+impl RawExpr {
     pub fn new_err(span: Span) -> Self {
         Self {
-            kind: ExprKind::Error,
+            kind: RawExprKind::Error,
             span,
         }
     }
 }
 
 #[derive(Debug)]
-pub enum ExprKind {
+pub enum RawExprKind {
     Ident(String),
     Atom,
     Type,
@@ -63,7 +63,7 @@ pub enum ExprKind {
     Error,
 }
 
-impl PrettyFmt for ExprKind {
+impl PrettyFmt for RawExprKind {
     fn pretty_fmt_with_ctx(
         &self,
         ctx: &mut PrettyContext,
@@ -120,7 +120,7 @@ impl PrettyFmt for ExprKind {
     }
 }
 
-impl Display for ExprKind {
+impl Display for RawExprKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.pretty_fmt(f)
     }
@@ -128,40 +128,40 @@ impl Display for ExprKind {
 
 #[derive(Debug)]
 pub struct Annotated {
-    pub expr: Box<Expr>,
-    pub type_expr: Box<Expr>,
+    pub expr: Box<RawExpr>,
+    pub type_expr: Box<RawExpr>,
 }
 
 #[derive(Debug)]
 pub struct Lambda {
-    pub param: Box<Expr>,
-    pub body: Box<Expr>,
+    pub param: Box<RawExpr>,
+    pub body: Box<RawExpr>,
 }
 
 #[derive(Debug)]
 pub struct Application {
-    pub func: Box<Expr>,
-    pub arg: Box<Expr>,
+    pub func: Box<RawExpr>,
+    pub arg: Box<RawExpr>,
 }
 
 #[derive(Debug)]
 pub struct PrefixExpr {
     pub op: Prefix,
     pub op_span: Span,
-    pub rhs: Box<Expr>,
+    pub rhs: Box<RawExpr>,
 }
 
 #[derive(Debug)]
 pub struct InfixExpr {
     pub op: Infix,
     pub op_span: Span,
-    pub lhs: Box<Expr>,
-    pub rhs: Box<Expr>,
+    pub lhs: Box<RawExpr>,
+    pub rhs: Box<RawExpr>,
 }
 
 #[derive(Debug)]
 pub struct Let {
-    pub var: Box<Expr>,
-    pub value: Box<Expr>,
-    pub body: Box<Expr>,
+    pub var: Box<RawExpr>,
+    pub value: Box<RawExpr>,
+    pub body: Box<RawExpr>,
 }

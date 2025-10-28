@@ -1,6 +1,6 @@
 use crate::core::{
     syntax::{
-        ast::raw::stmt::{Def, Stmt, StmtKind},
+        ast::raw::stmt::{Def, RawStmt, RawStmtKind},
         lexer::{stream::TokenStream, token::TokenKind},
         parser::Parser,
     },
@@ -11,7 +11,7 @@ impl<'a, T> Parser<'a, T>
 where
     T: TokenStream<'a>,
 {
-    pub fn stmts(&mut self) -> Vec<Stmt> {
+    pub fn stmts(&mut self) -> Vec<RawStmt> {
         let mut stmts = Vec::new();
         while !self.tokens.is_empty() {
             let peek = &self.tokens.peek().kind;
@@ -23,12 +23,12 @@ where
                 Ok(_) => {
                     let expr = self.expr();
                     let span = expr.span;
-                    (StmtKind::Eval(Box::new(expr)), span).into()
+                    (RawStmtKind::Eval(Box::new(expr)), span).into()
                 }
                 Err(_) => {
                     let (e, span) = self.tokens.next().unwrap_error();
                     self.report(e.into());
-                    (StmtKind::Error, span).into()
+                    (RawStmtKind::Error, span).into()
                 }
             };
             stmts.push(stmt);
@@ -36,11 +36,11 @@ where
         stmts
     }
 
-    pub fn stmt_def(&mut self, let_span: Span) -> Stmt {
+    pub fn stmt_def(&mut self, let_span: Span) -> RawStmt {
         let var = Box::new(self.expr());
         self.expect(TokenKind::ColonEq);
         let value = Box::new(self.expr());
         let span = let_span.merge(value.span);
-        (StmtKind::Def(Box::new(Def { var, value })), span).into()
+        (RawStmtKind::Def(Box::new(Def { var, value })), span).into()
     }
 }

@@ -4,7 +4,7 @@ use std::io::Write;
 
 use crate::core::diagnostics::Diagnostics;
 use crate::core::diagnostics::display_report::DisplayReport;
-use crate::core::syntax::ast::raw::stmt::Stmt;
+use crate::core::syntax::ast::raw::stmt::RawStmt;
 use crate::core::syntax::lexer::Lexer;
 use crate::core::syntax::parser::Parser;
 
@@ -23,13 +23,13 @@ impl Repl {
         }
     }
 
-    fn parse(&self, src: &str) -> (Vec<Stmt>, Diagnostics) {
+    fn parse(&self, src: &str) -> (Vec<RawStmt>, Diagnostics) {
         let lexer = Lexer::new(src);
         let mut parser = Parser::new(lexer);
         parser.parse()
     }
 
-    fn show_raw_ast(&self, stmts: Vec<Stmt>) {
+    fn show_raw_ast(&self, stmts: Vec<RawStmt>) {
         println!("Raw ASTs:");
         for stmt in stmts {
             println!("{stmt}");

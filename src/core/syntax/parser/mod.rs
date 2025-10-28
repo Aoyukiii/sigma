@@ -9,7 +9,7 @@ use crate::core::{
         errors::{ParseError, ParseErrorKind},
     },
     syntax::{
-        ast::raw::stmt::Stmt,
+        ast::raw::stmt::RawStmt,
         lexer::{stream::TokenStream, token::TokenKind},
     },
 };
@@ -59,7 +59,7 @@ where
         }
     }
 
-    pub fn parse(&mut self) -> (Vec<Stmt>, Diagnostics) {
+    pub fn parse(&mut self) -> (Vec<RawStmt>, Diagnostics) {
         self.errs.clear();
         (self.stmts(), std::mem::take(&mut self.errs))
     }
