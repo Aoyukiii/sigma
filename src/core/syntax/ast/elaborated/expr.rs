@@ -5,9 +5,15 @@ use crate::core::{
 
 #[derive(Debug)]
 pub struct Expr {
+    pub kind: ExprKind,
+    pub span: Span,
+    pub id: ExprId,
+}
+
+#[derive(Debug, Default)]
+pub struct TyExpr {
     kind: ExprKind,
-    span: Span,
-    id: ExprId,
+    span: Option<Span>,
 }
 
 impl From<(ExprKind, Span, ExprId)> for Expr {
@@ -16,7 +22,7 @@ impl From<(ExprKind, Span, ExprId)> for Expr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum ExprKind {
     Var(DebruijnId),
     Atom,
@@ -26,6 +32,8 @@ pub enum ExprKind {
     Application(Box<Application>),
     Let(Box<Let>),
     Error,
+    #[default]
+    Hole,
 }
 
 #[derive(Debug)]
