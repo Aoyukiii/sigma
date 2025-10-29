@@ -2,7 +2,9 @@ use crate::core::{
     diagnostics::errors::ParseErrorKind,
     syntax::{
         ast::raw::{
-            expr::{Annotated, Application, RawExpr, RawExprKind, InfixExpr, Lambda, Let, PrefixExpr},
+            expr::{
+                Annotated, Application, InfixExpr, Lambda, Let, PrefixExpr, RawExpr, RawExprKind,
+            },
             operator::{Infix, Prefix},
         },
         lexer::{
