@@ -2,13 +2,9 @@ use std::fmt::Display;
 
 use colored::Colorize;
 
-use crate::core::{
-    syntax::ast::raw::expr::RawExpr,
-    utils::{
-        pretty::{NodeFormatter, PrettyContext, PrettyFmt},
-        span::Span,
-    },
-};
+use crate::core::{syntax::ast::raw::expr::RawExpr, utils::span::Span};
+
+use pretty_fmt::{NodeFormatter, PrettyContext, PrettyFmt};
 
 #[derive(Debug)]
 pub struct RawStmt {

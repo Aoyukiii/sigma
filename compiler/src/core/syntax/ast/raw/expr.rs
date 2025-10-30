@@ -4,11 +4,10 @@ use colored::Colorize;
 
 use crate::core::{
     syntax::ast::raw::operator::{Infix, Prefix},
-    utils::{
-        pretty::{NodeFormatter, PrettyContext, PrettyFmt},
-        span::Span,
-    },
+    utils::span::Span,
 };
+
+use pretty_fmt::{NodeFormatter, PrettyContext, PrettyFmt};
 
 #[derive(Debug)]
 pub struct RawExpr {

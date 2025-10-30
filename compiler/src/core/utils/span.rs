@@ -4,11 +4,9 @@ use std::{
 };
 
 use colored::Colorize;
+use pretty_fmt::PrettyFmt;
 
-use crate::core::utils::{
-    cursor::{Cursor, ToCursor},
-    pretty::PrettyFmt,
-};
+use crate::core::utils::cursor::{Cursor, ToCursor};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Span {
@@ -60,7 +58,7 @@ impl Debug for Span {
 impl PrettyFmt for Span {
     fn pretty_fmt_with_ctx(
         &self,
-        _: &mut super::pretty::PrettyContext,
+        _: &mut pretty_fmt::PrettyContext,
         f: &mut std::fmt::Formatter,
     ) -> std::fmt::Result {
         write!(
