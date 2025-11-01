@@ -338,6 +338,7 @@ dependencies = [
 name = "test"
 version = "0.1.0"
 dependencies = [
+ "colored",
  "pretty-fmt",
  "pretty-fmt-macros",
 ]
