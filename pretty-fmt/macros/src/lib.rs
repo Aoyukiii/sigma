@@ -61,6 +61,7 @@ fn generate_match_arm(v: &Variant) -> syn::Result<proc_macro2::TokenStream> {
 
     match fields {
         Fields::Unnamed(f) => {
+            // fields like `Some(T)`
             let len = f.unnamed.len();
             let arg_idents = (0..len)
                 .map(|i| Ident::new(&format!("arg{}", i), proc_macro2::Span::call_site()))
@@ -92,8 +93,12 @@ fn generate_match_arm(v: &Variant) -> syn::Result<proc_macro2::TokenStream> {
             };
             Ok(arm)
         }
-        Fields::Named(_) => todo!(),
+        Fields::Named(_) => {
+            // fields like `Point { x: f64, y: f64 }`
+            todo!()
+        }
         Fields::Unit => {
+            // fields like `None`
             let fmt_str = match fmt_attr {
                 Some(fmt_attr) => generate_fmt_str(fmt_attr)?,
                 None => ident.to_string(),
