@@ -13,6 +13,13 @@ enum Expr {
         lhs: Box<Expr>,
         rhs: Box<Expr>,
     },
+
+    Big(Box<Big>),
+}
+
+#[derive(PrettyFmt)]
+struct Big {
+    a: i32,
 }
 
 impl_display_for_pretty_fmt!(Expr);

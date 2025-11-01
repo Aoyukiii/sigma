@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{
-    Attribute, Data, DataEnum, DeriveInput, Expr, ExprLit, Fields, Ident, Lit, Variant,
+    Attribute, Data, DataEnum, DataStruct, DeriveInput, Expr, ExprLit, Fields, Ident, Lit, Variant,
     parse_macro_input,
 };
 
@@ -18,16 +18,11 @@ fn generate_from_input(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let struct_ident = &input.ident;
     match &input.data {
         Data::Enum(data) => {
-            let arms = generate_for_enum(data)?;
-            let body = quote! {
-                match self {
-                    #(#arms),*
-                }
-            };
+            let body = generate_body_for_enum(data)?;
             Ok(generate_impl(struct_ident, body))
         }
         Data::Struct(data) => {
-            let body = quote! {};
+            let body = generate_body_for_struct(struct_ident, data)?;
             Ok(generate_impl(struct_ident, body))
         }
         _ => Err(syn::Error::new_spanned(
@@ -51,14 +46,33 @@ fn generate_impl(type_ident: &Ident, body: proc_macro2::TokenStream) -> proc_mac
     }
 }
 
-fn generate_for_enum(data: &DataEnum) -> syn::Result<Vec<proc_macro2::TokenStream>> {
-    let v: Result<Vec<_>, _> = data
+fn generate_body_for_enum(data: &DataEnum) -> syn::Result<proc_macro2::TokenStream> {
+    let arms = data
         .variants
         .iter()
         .map(|v| generate_match_arm(v))
-        .collect();
-    let v = v?;
-    Ok(v)
+        .collect::<Result<Vec<_>, _>>()?;
+    let body = quote! {
+        match self {
+            #(#arms),*
+        }
+    };
+    Ok(body)
+}
+
+fn generate_body_for_struct(
+    struct_ident: &Ident,
+    data: &DataStruct,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let struct_name = struct_ident.to_string();
+    let fields: Vec<Ident> = data.fields.iter().map(|f| todo!()).collect::<Vec<_>>();
+    let body = quote! {
+        pretty_fmt::NodeFormatter::new(ctx, f)
+            .header(#struct_name)?
+            #(#fields)*
+            .finish()
+    };
+    Ok(body)
 }
 
 fn generate_match_arm(v: &Variant) -> syn::Result<proc_macro2::TokenStream> {
