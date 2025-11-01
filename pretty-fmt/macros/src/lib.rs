@@ -111,9 +111,58 @@ fn generate_match_arm(v: &Variant) -> syn::Result<proc_macro2::TokenStream> {
             };
             Ok(arm)
         }
-        Fields::Named(_) => {
+        Fields::Named(f) => {
             // fields like `Point { x: f64, y: f64 }`
-            todo!()
+
+            let arg_idents_with_skip = f
+                .named
+                .iter()
+                .map(|f| {
+                    (
+                        f.ident.clone().unwrap(),
+                        get_attr(&f.attrs, "skip").is_some(),
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            let field_defs = arg_idents_with_skip
+                .iter()
+                .map(|(ident, skip)| {
+                    if *skip {
+                        quote! { #ident: _ }
+                    } else {
+                        quote! { #ident }
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let arm = match fmt_attr {
+                Some(fmt_attr) => {
+                    quote! {
+                        Self::#ident { #(#field_defs),* } => todo!()
+                    }
+                }
+                None => {
+                    let fields: Vec<_> = arg_idents_with_skip
+                        .iter()
+                        .filter(|(_, skip)| !*skip)
+                        .map(|(ident, _)| {
+                            let ident_name = ident.to_string();
+                            quote! {
+                                .field(#ident_name, #ident)?
+                            }
+                        })
+                        .collect();
+                    let ident_str = ident.to_string();
+                    quote! {
+                        Self::#ident { #(#field_defs),* } => pretty_fmt::NodeFormatter::new(ctx, f)
+                            .header(#ident_str)?
+                            #(#fields)*
+                            .finish()
+                    }
+                }
+            };
+            Ok(arm)
         }
         Fields::Unit => {
             // fields like `None`

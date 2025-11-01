@@ -7,20 +7,25 @@ enum Expr {
     #[pretty_fmt("UnitThing")]
     Unit,
 
-    InfixOp(#[skip] char, Box<Expr>, Box<Expr>),
+    InfixOp {
+        // #[skip]
+        op: char,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
 }
 
 impl_display_for_pretty_fmt!(Expr);
 
 fn main() {
-    let e = Expr::InfixOp(
-        '+',
-        Box::new(Expr::InfixOp(
-            '+',
-            Box::new(Expr::Unit),
-            Box::new(Expr::Number(2.)),
-        )),
-        Box::new(Expr::Number(2.)),
-    );
+    let e = Expr::InfixOp {
+        op: '+',
+        lhs: Box::new(Expr::InfixOp {
+            op: '+',
+            lhs: Box::new(Expr::Unit),
+            rhs: Box::new(Expr::Number(2.)),
+        }),
+        rhs: Box::new(Expr::Number(2.)),
+    };
     println!("{e}")
 }
