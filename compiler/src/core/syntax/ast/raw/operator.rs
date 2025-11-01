@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use pretty_fmt_macros::PrettyFmt;
-
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 pub enum Precedence {
     // Lowest precedence here
