@@ -5,7 +5,7 @@ use syn::{
     parse_macro_input,
 };
 
-#[proc_macro_derive(PrettyFmt, attributes(pretty_fmt))]
+#[proc_macro_derive(PrettyFmt, attributes(pretty_fmt, skip))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let struct_ident = &ast.ident;
@@ -54,27 +54,35 @@ fn generate_for_enum(data: &DataEnum) -> syn::Result<Vec<proc_macro2::TokenStrea
 fn generate_match_arm(v: &Variant) -> syn::Result<proc_macro2::TokenStream> {
     let ident = &v.ident;
     let fields = &v.fields;
-    let fmt_attr = v
-        .attrs
-        .iter()
-        .find(|attr| attr.path().is_ident("pretty_fmt"));
+    let fmt_attr = get_attr(&v.attrs, "pretty_fmt");
 
     match fields {
         Fields::Unnamed(f) => {
             // fields like `Some(T)`
-            let len = f.unnamed.len();
-            let arg_idents = (0..len)
-                .map(|i| Ident::new(&format!("arg{}", i), proc_macro2::Span::call_site()))
+            let arg_idents = f
+                .unnamed
+                .iter()
+                .enumerate()
+                .map(|(i, f)| {
+                    if let Some(_) = get_attr(&f.attrs, "skip") {
+                        Ident::new("_", proc_macro2::Span::call_site())
+                    } else {
+                        Ident::new(&format!("arg{}", i), proc_macro2::Span::call_site())
+                    }
+                })
                 .collect::<Vec<_>>();
 
             let arm = match fmt_attr {
-                Some(fmt_attr) => quote! {
-                    Self::#ident(#(#arg_idents),*) => todo!()
-                },
+                Some(fmt_attr) => {
+                    quote! {
+                        Self::#ident(#(#arg_idents),*) => todo!()
+                    }
+                }
                 None => {
                     let fields: Vec<_> = arg_idents
                         .iter()
                         .enumerate()
+                        .filter(|(_, ident)| ident.to_string() != "_")
                         .map(|(i, ident)| {
                             let i = i.to_string();
                             quote! {
@@ -125,4 +133,8 @@ fn generate_fmt_str(fmt_attr: &Attribute) -> syn::Result<String> {
         ));
     };
     Ok(fmt_str)
+}
+
+fn get_attr<'a, 'b>(attrs: &'a Vec<Attribute>, name: &'b str) -> Option<&'a Attribute> {
+    attrs.iter().find(|attr| attr.path().is_ident(name))
 }

@@ -6,7 +6,8 @@ enum Expr {
     Number(f64),
     #[pretty_fmt("UnitThing")]
     Unit,
-    InfixOp(char, Box<Expr>, Box<Expr>),
+
+    InfixOp(#[skip] char, Box<Expr>, Box<Expr>),
 }
 
 impl_display_for_pretty_fmt!(Expr);
