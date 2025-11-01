@@ -6,7 +6,7 @@ use pretty_fmt_macros::PrettyFmt;
 enum Expr {
     #[pretty_fmt("{}", arg0)]
     Number(f64),
-    #[header("U")]
+    #[pretty_fmt("U")]
     Unit,
 
     #[header("{} ", op.to_string().yellow().bold())]

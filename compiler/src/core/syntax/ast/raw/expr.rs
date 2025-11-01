@@ -8,9 +8,10 @@ use crate::core::{
     utils::span::Span,
 };
 
-use pretty_fmt::{NodeFormatter, PrettyContext, PrettyFmt};
+use pretty_fmt::PrettyFmt;
 
-#[derive(Debug)]
+#[derive(Debug, PrettyFmt)]
+#[pretty_fmt("{} @ {}", kind, span)]
 pub struct RawExpr {
     pub kind: RawExprKind,
     pub span: Span,
@@ -19,17 +20,6 @@ pub struct RawExpr {
 impl From<(RawExprKind, Span)> for RawExpr {
     fn from((kind, span): (RawExprKind, Span)) -> Self {
         Self { kind, span }
-    }
-}
-
-impl PrettyFmt for RawExpr {
-    fn pretty_fmt_with_ctx(
-        &self,
-        ctx: &PrettyContext,
-        f: &mut std::fmt::Formatter,
-    ) -> std::fmt::Result {
-        self.kind.pretty_fmt_with_ctx(ctx, f)?;
-        write!(f, " @ {}", self.span)
     }
 }
 
@@ -50,16 +40,37 @@ impl RawExpr {
 
 #[derive(Debug, PrettyFmt)]
 pub enum RawExprKind {
+    #[pretty_fmt("{}", arg0.magenta())]
     Ident(String),
+
+    #[pretty_fmt("{}", "Atom".yellow())]
     Atom,
+
+    #[pretty_fmt("{}", "Type".yellow())]
     Type,
+
+    #[pretty_fmt("{}", arg0.yellow())]
     AtomLiteral(String),
+
+    #[pretty_fmt("{}", arg0.with_ctx(ctx))]
     Annotated(Box<Annotated>),
+
+    #[pretty_fmt("{}", arg0.with_ctx(ctx))]
     Lambda(Box<Lambda>),
+
+    #[pretty_fmt("{}", arg0.with_ctx(ctx))]
     Application(Box<Application>),
+
+    #[pretty_fmt("{}", arg0.with_ctx(ctx))]
     Prefix(Box<PrefixExpr>),
+
+    #[pretty_fmt("{}", arg0.with_ctx(ctx))]
     Infix(Box<InfixExpr>),
+
+    #[pretty_fmt("{}", arg0.with_ctx(ctx))]
     Let(Box<Let>),
+
+    #[pretty_fmt("{}", "Error".red())]
     Error,
 }
 
@@ -88,15 +99,21 @@ pub struct Application {
 }
 
 #[derive(Debug, PrettyFmt)]
+#[header("({}) @ {} ", op.to_string().magenta(), op_span)]
 pub struct PrefixExpr {
+    #[skip]
     pub op: Prefix,
+    #[skip]
     pub op_span: Span,
     pub rhs: Box<RawExpr>,
 }
 
 #[derive(Debug, PrettyFmt)]
+#[header("({}) @ {} ", op.to_string().magenta(), op_span)]
 pub struct InfixExpr {
+    #[skip]
     pub op: Infix,
+    #[skip]
     pub op_span: Span,
     pub lhs: Box<RawExpr>,
     pub rhs: Box<RawExpr>,

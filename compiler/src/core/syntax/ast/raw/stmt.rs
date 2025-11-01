@@ -1,12 +1,14 @@
 use std::fmt::Display;
 
 use colored::Colorize;
+use pretty_fmt_macros::PrettyFmt;
 
 use crate::core::{syntax::ast::raw::expr::RawExpr, utils::span::Span};
 
-use pretty_fmt::{NodeFormatter, PrettyContext, PrettyFmt};
+use pretty_fmt::PrettyFmt;
 
-#[derive(Debug)]
+#[derive(Debug, PrettyFmt)]
+#[pretty_fmt("{} {} @ {}", "[Stmt]".yellow(), kind, span)]
 pub struct RawStmt {
     pub kind: RawStmtKind,
     pub span: Span,
@@ -20,48 +22,16 @@ impl From<(RawStmtKind, Span)> for RawStmt {
 
 impl Display for RawStmt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} @ {}", self.kind, self.span)
+        self.pretty_fmt(f)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PrettyFmt)]
 pub enum RawStmtKind {
     Def(Box<Def>),
     Eval(Box<RawExpr>),
+    #[pretty_fmt("{}", "Error".red())]
     Error,
-}
-
-impl PrettyFmt for RawStmtKind {
-    fn pretty_fmt_with_ctx(
-        &self,
-        ctx: &PrettyContext,
-        f: &mut std::fmt::Formatter,
-    ) -> std::fmt::Result {
-        match self {
-            Self::Def(it) => {
-                NodeFormatter::new(ctx, f)
-                    .header("Let")?
-                    .field("var", &it.var)?
-                    .field("value", &it.value)?
-                    .finish()?;
-            }
-            Self::Eval(it) => {
-                NodeFormatter::new(ctx, f)
-                    .header("Eval")?
-                    .content(it)?
-                    .finish()?;
-            }
-            Self::Error => {
-                write!(f, "{}", "Error".red())?;
-            }
-        }
-        Ok(())
-    }
-
-    fn pretty_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ", "[Stmt]".yellow())?;
-        self.pretty_fmt_with_ctx(&mut PrettyContext::new(), f)
-    }
 }
 
 impl Display for RawStmtKind {
@@ -70,7 +40,7 @@ impl Display for RawStmtKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PrettyFmt)]
 pub struct Def {
     pub var: Box<RawExpr>,
     pub value: Box<RawExpr>,

@@ -37,7 +37,7 @@ impl Precedence {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PrettyFmt)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Prefix {
     Plus,
     Neg,
@@ -63,7 +63,7 @@ impl Display for Prefix {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PrettyFmt)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Infix {
     Add,
     Sub,
