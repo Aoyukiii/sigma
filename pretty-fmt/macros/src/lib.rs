@@ -59,19 +59,49 @@ fn generate_body_for_enum(data: &DataEnum) -> syn::Result<proc_macro2::TokenStre
     };
     Ok(body)
 }
-
 fn generate_body_for_struct(
     struct_ident: &Ident,
     data: &DataStruct,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let struct_name = struct_ident.to_string();
-    let fields: Vec<Ident> = data.fields.iter().map(|f| todo!()).collect::<Vec<_>>();
+
+    let fields = match &data.fields {
+        Fields::Named(f) => {
+            let field_tokens: Vec<_> = f
+                .named
+                .iter()
+                .filter(|f| get_attr(&f.attrs, "skip").is_none())
+                .map(|f| {
+                    let ident = f.ident.as_ref().unwrap();
+                    let ident_name = ident.to_string();
+                    quote! { .field(#ident_name, &self.#ident)? }
+                })
+                .collect();
+            field_tokens
+        }
+        Fields::Unnamed(f) => {
+            let field_tokens: Vec<_> = f
+                .unnamed
+                .iter()
+                .enumerate()
+                .filter(|(_, f)| get_attr(&f.attrs, "skip").is_none())
+                .map(|(i, _)| {
+                    let field_name = i.to_string();
+                    quote! { .field(#field_name, &self.#i)? }
+                })
+                .collect();
+            field_tokens
+        }
+        Fields::Unit => vec![],
+    };
+
     let body = quote! {
         pretty_fmt::NodeFormatter::new(ctx, f)
             .header(#struct_name)?
             #(#fields)*
             .finish()
     };
+
     Ok(body)
 }
 

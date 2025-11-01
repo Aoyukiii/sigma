@@ -19,7 +19,9 @@ enum Expr {
 
 #[derive(PrettyFmt)]
 struct Big {
+    #[skip]
     a: i32,
+    b: i32,
 }
 
 impl_display_for_pretty_fmt!(Expr);
