@@ -1,11 +1,11 @@
 use proc_macro::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{
-    Attribute, Data, DataEnum, DataStruct, DeriveInput, Expr, ExprLit, Fields, Ident, Lit, Variant,
-    parse_macro_input,
+    Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, FieldsUnnamed, Ident,
+    Variant, parse_macro_input,
 };
 
-#[proc_macro_derive(PrettyFmt, attributes(pretty_fmt, skip))]
+#[proc_macro_derive(PrettyFmt, attributes(pretty_fmt, skip, header))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match generate_from_input(&input) {
@@ -14,20 +14,88 @@ pub fn derive(input: TokenStream) -> TokenStream {
     }
 }
 
+struct FmtConfig {
+    skip: bool,
+    custom_fmt: Option<proc_macro2::TokenStream>,
+    header_fmt: Option<proc_macro2::TokenStream>,
+}
+
+impl FmtConfig {
+    fn from_attrs(attrs: &Vec<Attribute>) -> syn::Result<Self> {
+        let skip = find_attr(attrs, "skip").is_some();
+        let fmt_attr = find_attr(attrs, "pretty_fmt");
+        let custom_fmt = match fmt_attr {
+            Some(attr) => Some(attr.parse_args::<proc_macro2::TokenStream>()?),
+            None => None,
+        };
+        let header_attr = find_attr(attrs, "header");
+        let header_fmt = match header_attr {
+            Some(attr) => Some(attr.parse_args::<proc_macro2::TokenStream>()?),
+            None => None,
+        };
+        let custom_fmt = custom_fmt.map(|f| quote! { format!(#f) });
+        let header_fmt = header_fmt.map(|f| quote! { format!(#f) });
+        Ok(Self {
+            skip,
+            custom_fmt,
+            header_fmt,
+        })
+    }
+}
+
+fn find_attr<'a, 'b>(attrs: &'a Vec<Attribute>, name: &'b str) -> Option<&'a Attribute> {
+    attrs.iter().find(|attr| attr.path().is_ident(name))
+}
+
+enum FieldConfigs {
+    Unit,
+    Named(Vec<(Ident, FmtConfig)>),
+    Unnamed(Vec<(usize, FmtConfig)>),
+}
+
+impl FieldConfigs {
+    fn from_fields(fields: &Fields) -> syn::Result<Self> {
+        match fields {
+            Fields::Unit => Ok(Self::Unit),
+            Fields::Named(FieldsNamed { named, .. }) => {
+                let mut result = Vec::with_capacity(named.len());
+                for field in named {
+                    let config = FmtConfig::from_attrs(&field.attrs)?;
+                    result.push((field.ident.clone().unwrap(), config));
+                }
+                Ok(Self::Named(result))
+            }
+            Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
+                let mut result = Vec::with_capacity(unnamed.len());
+                for (i, field) in unnamed.iter().enumerate() {
+                    let config = FmtConfig::from_attrs(&field.attrs)?;
+                    result.push((i, config));
+                }
+                Ok(Self::Unnamed(result))
+            }
+        }
+    }
+}
+
+fn make_ident(name: &str) -> Ident {
+    Ident::new(name, proc_macro2::Span::call_site())
+}
+
 fn generate_from_input(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let struct_ident = &input.ident;
+    let attrs = &input.attrs;
     match &input.data {
         Data::Enum(data) => {
             let body = generate_body_for_enum(data)?;
             Ok(generate_impl(struct_ident, body))
         }
         Data::Struct(data) => {
-            let body = generate_body_for_struct(struct_ident, data)?;
+            let body = generate_body_for_struct(struct_ident, data, attrs)?;
             Ok(generate_impl(struct_ident, body))
         }
         _ => Err(syn::Error::new_spanned(
             struct_ident,
-            "`PrettyFmt` can only be used on enums for now",
+            "`PrettyFmt` can only be used on enums or structs",
         )),
     }
 }
@@ -37,7 +105,7 @@ fn generate_impl(type_ident: &Ident, body: proc_macro2::TokenStream) -> proc_mac
         impl pretty_fmt::PrettyFmt for #type_ident {
             fn pretty_fmt_with_ctx(
                 &self,
-                ctx: &mut pretty_fmt::PrettyContext,
+                ctx: &pretty_fmt::PrettyContext,
                 f: &mut std::fmt::Formatter,
             ) -> std::fmt::Result {
                 #body
@@ -50,7 +118,7 @@ fn generate_body_for_enum(data: &DataEnum) -> syn::Result<proc_macro2::TokenStre
     let arms = data
         .variants
         .iter()
-        .map(|v| generate_match_arm(v))
+        .map(|v| generate_arm(v))
         .collect::<Result<Vec<_>, _>>()?;
     let body = quote! {
         match self {
@@ -59,185 +127,167 @@ fn generate_body_for_enum(data: &DataEnum) -> syn::Result<proc_macro2::TokenStre
     };
     Ok(body)
 }
+
 fn generate_body_for_struct(
     struct_ident: &Ident,
     data: &DataStruct,
+    attrs: &Vec<Attribute>,
 ) -> syn::Result<proc_macro2::TokenStream> {
+    use FieldConfigs::*;
+    let configs = FieldConfigs::from_fields(&data.fields)?;
+    let config = FmtConfig::from_attrs(attrs)?;
+
+    let custom_fmt = config.custom_fmt;
+    let header_fmt = config.header_fmt;
+
+    if custom_fmt.is_some() {
+        return Err(syn::Error::new_spanned(
+            struct_ident.to_token_stream(),
+            "Attribute `pretty_fmt` cannot be used on top of structs",
+        ));
+    }
+
     let struct_name = struct_ident.to_string();
 
-    let fields = match &data.fields {
-        Fields::Named(f) => {
-            let field_tokens: Vec<_> = f
-                .named
-                .iter()
-                .filter(|f| get_attr(&f.attrs, "skip").is_none())
-                .map(|f| {
-                    let ident = f.ident.as_ref().unwrap();
+    let header_fmt = header_fmt.unwrap_or(quote! { #struct_name });
+
+    if let Unit = configs {
+        let body = quote! {
+            write!(f, #header_fmt)
+        };
+        return Ok(body);
+    }
+
+    let field_chains: Vec<proc_macro2::TokenStream> = match configs {
+        Unit => unreachable!(),
+        Named(it) => it
+            .iter()
+            .filter_map(|(ident, config)| {
+                if config.skip {
+                    None
+                } else {
                     let ident_name = ident.to_string();
-                    quote! { .field(#ident_name, &self.#ident)? }
-                })
-                .collect();
-            field_tokens
-        }
-        Fields::Unnamed(f) => {
-            let field_tokens: Vec<_> = f
-                .unnamed
-                .iter()
-                .enumerate()
-                .filter(|(_, f)| get_attr(&f.attrs, "skip").is_none())
-                .map(|(i, _)| {
-                    let field_name = i.to_string();
-                    quote! { .field(#field_name, &self.#i)? }
-                })
-                .collect();
-            field_tokens
-        }
-        Fields::Unit => vec![],
+                    Some(quote! { .field(#ident_name, &self.#ident)? })
+                }
+            })
+            .collect(),
+        Unnamed(it) => it
+            .iter()
+            .filter_map(|(idx, config)| {
+                if config.skip {
+                    None
+                } else {
+                    let idx_name = idx.to_string();
+                    Some(quote! { .field(#idx_name, &self.#idx)? })
+                }
+            })
+            .collect(),
     };
 
     let body = quote! {
         pretty_fmt::NodeFormatter::new(ctx, f)
-            .header(#struct_name)?
-            #(#fields)*
+            .header(&#header_fmt)?
+            #(#field_chains)*
             .finish()
     };
 
     Ok(body)
 }
 
-fn generate_match_arm(v: &Variant) -> syn::Result<proc_macro2::TokenStream> {
-    let ident = &v.ident;
-    let fields = &v.fields;
-    let fmt_attr = get_attr(&v.attrs, "pretty_fmt");
+fn generate_arm(variant: &Variant) -> syn::Result<proc_macro2::TokenStream> {
+    use FieldConfigs::*;
 
-    match fields {
-        Fields::Unnamed(f) => {
-            // fields like `Some(T)`
-            let arg_idents = f
-                .unnamed
-                .iter()
-                .enumerate()
-                .map(|(i, f)| {
-                    if let Some(_) = get_attr(&f.attrs, "skip") {
-                        Ident::new("_", proc_macro2::Span::call_site())
-                    } else {
-                        Ident::new(&format!("arg{}", i), proc_macro2::Span::call_site())
-                    }
-                })
-                .collect::<Vec<_>>();
+    let configs = FieldConfigs::from_fields(&variant.fields)?;
+    let variant_ident = &variant.ident;
+    let variant_name = variant_ident.to_string();
 
-            let arm = match fmt_attr {
-                Some(fmt_attr) => {
-                    quote! {
-                        Self::#ident(#(#arg_idents),*) => todo!()
-                    }
-                }
-                None => {
-                    let fields: Vec<_> = arg_idents
-                        .iter()
-                        .filter(|ident| ident.to_string() != "_")
-                        .enumerate()
-                        .map(|(i, ident)| {
-                            let i = i.to_string();
-                            quote! {
-                                .field(#i, #ident)?
-                            }
-                        })
-                        .collect();
-                    let ident_str = ident.to_string();
-                    quote! {
-                        Self::#ident(#(#arg_idents),*) => pretty_fmt::NodeFormatter::new(ctx, f)
-                            .header(#ident_str)?
-                            #(#fields)*
-                            .finish()
-                    }
-                }
-            };
-            Ok(arm)
-        }
-        Fields::Named(f) => {
-            // fields like `Point { x: f64, y: f64 }`
+    let variant_config = FmtConfig::from_attrs(&variant.attrs)?;
 
-            let arg_idents_with_skip = f
-                .named
-                .iter()
-                .map(|f| {
-                    (
-                        f.ident.clone().unwrap(),
-                        get_attr(&f.attrs, "skip").is_some(),
-                    )
-                })
-                .collect::<Vec<_>>();
+    let custom_fmt = variant_config.custom_fmt;
+    let header_fmt = variant_config.header_fmt;
 
-            let field_defs = arg_idents_with_skip
-                .iter()
-                .map(|(ident, skip)| {
-                    if *skip {
-                        quote! { #ident: _ }
-                    } else {
-                        quote! { #ident }
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            let arm = match fmt_attr {
-                Some(fmt_attr) => {
-                    quote! {
-                        Self::#ident { #(#field_defs),* } => todo!()
-                    }
-                }
-                None => {
-                    let fields: Vec<_> = arg_idents_with_skip
-                        .iter()
-                        .filter(|(_, skip)| !*skip)
-                        .map(|(ident, _)| {
-                            let ident_name = ident.to_string();
-                            quote! {
-                                .field(#ident_name, #ident)?
-                            }
-                        })
-                        .collect();
-                    let ident_str = ident.to_string();
-                    quote! {
-                        Self::#ident { #(#field_defs),* } => pretty_fmt::NodeFormatter::new(ctx, f)
-                            .header(#ident_str)?
-                            #(#fields)*
-                            .finish()
-                    }
-                }
-            };
-            Ok(arm)
-        }
-        Fields::Unit => {
-            // fields like `None`
-            let fmt_str = match fmt_attr {
-                Some(fmt_attr) => generate_fmt_str(fmt_attr)?,
-                None => ident.to_string(),
-            };
-            let arm = quote! {
-                Self::#ident => write!(f, #fmt_str)
-            };
-            Ok(arm)
-        }
-    }
-}
-
-fn generate_fmt_str(fmt_attr: &Attribute) -> syn::Result<String> {
-    let fmt_args = fmt_attr.parse_args()?;
-    let fmt_str = if let Expr::Lit(ExprLit {
-        lit: Lit::Str(s), ..
-    }) = fmt_args
-    {
-        s.value()
-    } else {
+    if custom_fmt.is_some() && header_fmt.is_some() {
         return Err(syn::Error::new_spanned(
-            fmt_args.to_token_stream(),
-            "Only string literal is supported",
+            variant.to_token_stream(),
+            "Attributes `pretty_fmt` and `header` cannot be used simultaneously",
         ));
-    };
-    Ok(fmt_str)
-}
+    }
 
-fn get_attr<'a, 'b>(attrs: &'a Vec<Attribute>, name: &'b str) -> Option<&'a Attribute> {
-    attrs.iter().find(|attr| attr.path().is_ident(name))
+    let header_fmt = header_fmt.unwrap_or(quote! { #variant_name });
+
+    if let Unit = configs {
+        let body = quote! {
+            Self::#variant_ident => write!(f, "{}", #header_fmt)
+        };
+        return Ok(body);
+    }
+
+    let unpacking = match &configs {
+        Unit => unreachable!(),
+        Named(it) => {
+            let field_patterns: Vec<proc_macro2::TokenStream> = it
+                .iter()
+                .map(|(field_ident, _)| {
+                    quote! { #field_ident }
+                })
+                .collect();
+            quote! { {#(#field_patterns),*} }
+        }
+        Unnamed(it) => {
+            let field_patterns: Vec<proc_macro2::TokenStream> = it
+                .iter()
+                .map(|(i, _)| {
+                    let ident = make_ident(&format!("arg{i}"));
+                    quote! { #ident }
+                })
+                .collect();
+            quote! { (#(#field_patterns),*) }
+        }
+    };
+
+    if let Some(custom_fmt) = custom_fmt {
+        let arm = quote! {
+            Self::#variant_ident #unpacking => write!(f, "{}", #custom_fmt)
+        };
+        eprintln!("{arm}");
+        return Ok(arm);
+    }
+
+    let ret = {
+        let field_chains: Vec<proc_macro2::TokenStream> = match &configs {
+            Unit => unreachable!(),
+            Named(it) => it
+                .iter()
+                .filter(|(_, config)| !config.skip)
+                .map(|(field_ident, _)| {
+                    let field_name = field_ident.to_string();
+                    quote! {
+                        .field(#field_name, #field_ident)?
+                    }
+                })
+                .collect(),
+            Unnamed(it) => it
+                .iter()
+                .filter(|(_, config)| !config.skip)
+                .map(|(i, _)| {
+                    let is = i.to_string();
+                    let ident = make_ident(&format!("arg{i}"));
+                    quote! {
+                        .field(#is, #ident)?
+                    }
+                })
+                .collect(),
+        };
+        quote! {
+            pretty_fmt::NodeFormatter::new(ctx, f)
+                .header(&#header_fmt)?
+                #(#field_chains)*
+                .finish()
+        }
+    };
+
+    let arm = quote! {
+        Self::#variant_ident #unpacking => #ret
+    };
+    Ok(arm)
 }
