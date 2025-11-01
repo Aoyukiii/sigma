@@ -1,0 +1,8 @@
+[package]
+name = "test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pretty-fmt = { path = "../pretty-fmt/pretty-fmt" }
+pretty-fmt-macros = { path = "../pretty-fmt/macros" }
