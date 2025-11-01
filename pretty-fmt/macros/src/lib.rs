@@ -5,7 +5,7 @@ use syn::{
     Variant, parse_macro_input,
 };
 
-#[proc_macro_derive(PrettyFmt, attributes(pretty_fmt, skip, header))]
+#[proc_macro_derive(PrettyFmt, attributes(pretty_fmt, skip, header, impl_display))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match generate_from_input(&input) {
@@ -16,6 +16,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
 struct FmtConfig {
     skip: bool,
+    impl_display: bool,
     custom_fmt: Option<proc_macro2::TokenStream>,
     header_fmt: Option<proc_macro2::TokenStream>,
 }
@@ -23,6 +24,7 @@ struct FmtConfig {
 impl FmtConfig {
     fn from_attrs(attrs: &Vec<Attribute>) -> syn::Result<Self> {
         let skip = find_attr(attrs, "skip").is_some();
+        let impl_display = find_attr(attrs, "impl_display").is_some();
         let fmt_attr = find_attr(attrs, "pretty_fmt");
         let custom_fmt = match fmt_attr {
             Some(attr) => Some(attr.parse_args::<proc_macro2::TokenStream>()?),
@@ -37,6 +39,7 @@ impl FmtConfig {
         let header_fmt = header_fmt.map(|f| quote! { format!(#f) });
         Ok(Self {
             skip,
+            impl_display,
             custom_fmt,
             header_fmt,
         })
@@ -84,6 +87,7 @@ fn make_ident(name: &str) -> Ident {
 fn generate_from_input(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let struct_ident = &input.ident;
     let attrs = &input.attrs;
+    let impl_display = FmtConfig::from_attrs(&input.attrs)?.impl_display;
     match &input.data {
         Data::Enum(data) => {
             let body = generate_body_for_enum(data)?;
@@ -98,6 +102,18 @@ fn generate_from_input(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
             "`PrettyFmt` can only be used on enums or structs",
         )),
     }
+    .map(|impl_pretty_fmt| {
+        if impl_display {
+            quote! {
+                pretty_fmt::impl_display_for_pretty_fmt!(#struct_ident);
+                #impl_pretty_fmt
+            }
+        } else {
+            quote! {
+                #impl_pretty_fmt
+            }
+        }
+    })
 }
 
 fn generate_impl(type_ident: &Ident, body: proc_macro2::TokenStream) -> proc_macro2::TokenStream {

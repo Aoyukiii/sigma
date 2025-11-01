@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Debug, Display},
-    ops::Range,
-};
+use std::{fmt::Debug, ops::Range};
 
 use colored::Colorize;
 use pretty_fmt::PrettyFmt;
@@ -11,6 +8,7 @@ use crate::core::utils::cursor::{Cursor, ToCursor};
 
 #[derive(Clone, Copy, PartialEq, Eq, PrettyFmt)]
 #[pretty_fmt("{}", format!("{}..{}", self.start, self.end).yellow())]
+#[impl_display]
 pub struct Span {
     start: usize,
     end: usize,
@@ -54,11 +52,5 @@ impl From<Range<usize>> for Span {
 impl Debug for Span {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Span({}..{})", self.start, self.end)
-    }
-}
-
-impl Display for Span {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.pretty_fmt(f)
     }
 }
