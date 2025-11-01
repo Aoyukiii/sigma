@@ -140,25 +140,47 @@ fn generate_body_for_struct(
     let custom_fmt = config.custom_fmt;
     let header_fmt = config.header_fmt;
 
-    if custom_fmt.is_some() {
+    if custom_fmt.is_some() && header_fmt.is_some() {
         return Err(syn::Error::new_spanned(
             struct_ident.to_token_stream(),
-            "Attribute `pretty_fmt` cannot be used on top of structs",
+            "Attributes `pretty_fmt` and `header` cannot be used simultaneously",
         ));
     }
 
     let struct_name = struct_ident.to_string();
 
-    let header_fmt = header_fmt.unwrap_or(quote! { #struct_name });
-
     if let Unit = configs {
+        if header_fmt.is_some() {
+            return Err(syn::Error::new_spanned(
+                struct_ident.to_token_stream(),
+                "Attribute `header` cannot be used on the top of structs",
+            ));
+        }
+        let custom_fmt = custom_fmt.unwrap_or(quote! { #struct_name });
         let body = quote! {
-            write!(f, #header_fmt)
+            write!(f, #custom_fmt)
         };
         return Ok(body);
     }
 
-    let field_chains: Vec<proc_macro2::TokenStream> = match configs {
+    let let_stmts: Vec<proc_macro2::TokenStream> = match &configs {
+        Unit => unreachable!(),
+        Named(it) => it
+            .iter()
+            .map(|(ident, _)| {
+                quote! { let #ident = &self.#ident; }
+            })
+            .collect(),
+        Unnamed(it) => it
+            .iter()
+            .map(|(idx, _)| {
+                let ident = make_ident(&format!("arg{}", idx));
+                quote! { let #ident = &self.#idx; }
+            })
+            .collect(),
+    };
+
+    let field_chains: Vec<proc_macro2::TokenStream> = match &configs {
         Unit => unreachable!(),
         Named(it) => it
             .iter()
@@ -167,7 +189,7 @@ fn generate_body_for_struct(
                     None
                 } else {
                     let ident_name = ident.to_string();
-                    Some(quote! { .field(#ident_name, &self.#ident)? })
+                    Some(quote! { .field(#ident_name, #ident)? })
                 }
             })
             .collect(),
@@ -178,18 +200,28 @@ fn generate_body_for_struct(
                     None
                 } else {
                     let idx_name = idx.to_string();
-                    Some(quote! { .field(#idx_name, &self.#idx)? })
+                    Some(quote! { .field(#idx_name, #idx)? })
                 }
             })
             .collect(),
     };
 
-    let body = quote! {
+    let header_fmt = header_fmt.unwrap_or(quote! { #struct_name });
+    let ret = quote! {
         pretty_fmt::NodeFormatter::new(ctx, f)
             .header(&#header_fmt)?
             #(#field_chains)*
             .finish()
     };
+    let ret = custom_fmt
+        .map(|custom_fmt| quote! { write!(f, "{}", #custom_fmt) })
+        .unwrap_or(ret);
+    let body = quote! {
+        #(#let_stmts)*
+        #ret
+    };
+
+    eprintln!("{body}");
 
     Ok(body)
 }
@@ -213,11 +245,16 @@ fn generate_arm(variant: &Variant) -> syn::Result<proc_macro2::TokenStream> {
         ));
     }
 
-    let header_fmt = header_fmt.unwrap_or(quote! { #variant_name });
-
     if let Unit = configs {
+        if header_fmt.is_some() {
+            return Err(syn::Error::new_spanned(
+                variant.to_token_stream(),
+                "Attribute `header` cannot be used on unit variants",
+            ));
+        }
+        let custom_fmt = custom_fmt.unwrap_or(quote! { #variant_name });
         let body = quote! {
-            Self::#variant_ident => write!(f, "{}", #header_fmt)
+            Self::#variant_ident => write!(f, "{}", #custom_fmt)
         };
         return Ok(body);
     }
@@ -278,6 +315,7 @@ fn generate_arm(variant: &Variant) -> syn::Result<proc_macro2::TokenStream> {
                 })
                 .collect(),
         };
+        let header_fmt = header_fmt.unwrap_or(quote! { #variant_name });
         quote! {
             pretty_fmt::NodeFormatter::new(ctx, f)
                 .header(&#header_fmt)?
