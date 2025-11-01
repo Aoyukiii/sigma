@@ -91,8 +91,8 @@ fn generate_match_arm(v: &Variant) -> syn::Result<proc_macro2::TokenStream> {
                 None => {
                     let fields: Vec<_> = arg_idents
                         .iter()
+                        .filter(|ident| ident.to_string() != "_")
                         .enumerate()
-                        .filter(|(_, ident)| ident.to_string() != "_")
                         .map(|(i, ident)| {
                             let i = i.to_string();
                             quote! {
