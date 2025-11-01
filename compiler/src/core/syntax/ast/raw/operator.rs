@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use pretty_fmt_macros::PrettyFmt;
+
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 pub enum Precedence {
     // Lowest precedence here
@@ -35,7 +37,7 @@ impl Precedence {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, PrettyFmt)]
 pub enum Prefix {
     Plus,
     Neg,
@@ -61,7 +63,7 @@ impl Display for Prefix {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, PrettyFmt)]
 pub enum Infix {
     Add,
     Sub,

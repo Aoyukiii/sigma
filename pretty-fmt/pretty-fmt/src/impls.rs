@@ -4,7 +4,7 @@ macro_rules! impl_pretty_fmt_for_deref {
     ($($ty:ty),*) => {
         $(
             impl<T: crate::PrettyFmt> crate::PrettyFmt for $ty {
-                fn pretty_fmt_with_ctx(&self, ctx: &mut crate::PrettyContext, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                fn pretty_fmt_with_ctx(&self, ctx: &crate::PrettyContext, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                     self.deref().pretty_fmt_with_ctx(ctx, f)
                 }
             }
@@ -28,7 +28,7 @@ macro_rules! impl_pretty_fmt_for_display {
                     std::fmt::Display::fmt(self, f)
                 }
 
-                fn pretty_fmt_with_ctx(&self, _: &mut crate::PrettyContext, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                fn pretty_fmt_with_ctx(&self, _: &crate::PrettyContext, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                     std::fmt::Display::fmt(self, f)
                 }
             }

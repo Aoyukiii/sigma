@@ -34,7 +34,7 @@ pub enum RawStmtKind {
 impl PrettyFmt for RawStmtKind {
     fn pretty_fmt_with_ctx(
         &self,
-        ctx: &mut PrettyContext,
+        ctx: &PrettyContext,
         f: &mut std::fmt::Formatter,
     ) -> std::fmt::Result {
         match self {

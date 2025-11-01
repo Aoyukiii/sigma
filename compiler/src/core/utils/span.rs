@@ -58,7 +58,7 @@ impl Debug for Span {
 impl PrettyFmt for Span {
     fn pretty_fmt_with_ctx(
         &self,
-        _: &mut pretty_fmt::PrettyContext,
+        _: &pretty_fmt::PrettyContext,
         f: &mut std::fmt::Formatter,
     ) -> std::fmt::Result {
         write!(
