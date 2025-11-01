@@ -7,37 +7,47 @@ use syn::{
 
 #[proc_macro_derive(PrettyFmt, attributes(pretty_fmt, skip))]
 pub fn derive(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-    let struct_ident = &ast.ident;
+    let input = parse_macro_input!(input as DeriveInput);
+    match generate_from_input(&input) {
+        Ok(s) => s.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
 
-    let data = match &ast.data {
-        Data::Enum(data) => data,
-        _ => {
-            return syn::Error::new_spanned(
-                &struct_ident,
-                "`PrettyFmt` can only be used on enums for now",
-            )
-            .to_compile_error()
-            .into();
-        }
-    };
-
-    match generate_for_enum(data) {
-        Ok(arms) => quote! {
-            impl pretty_fmt::PrettyFmt for #struct_ident {
-                fn pretty_fmt_with_ctx(
-                    &self,
-                    ctx: &mut pretty_fmt::PrettyContext,
-                    f: &mut std::fmt::Formatter,
-                ) -> std::fmt::Result {
-                    match &self {
-                        #(#arms),*
-                    }
+fn generate_from_input(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let struct_ident = &input.ident;
+    match &input.data {
+        Data::Enum(data) => {
+            let arms = generate_for_enum(data)?;
+            let body = quote! {
+                match self {
+                    #(#arms),*
                 }
+            };
+            Ok(generate_impl(struct_ident, body))
+        }
+        Data::Struct(data) => {
+            let body = quote! {};
+            Ok(generate_impl(struct_ident, body))
+        }
+        _ => Err(syn::Error::new_spanned(
+            struct_ident,
+            "`PrettyFmt` can only be used on enums for now",
+        )),
+    }
+}
+
+fn generate_impl(type_ident: &Ident, body: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    quote! {
+        impl pretty_fmt::PrettyFmt for #type_ident {
+            fn pretty_fmt_with_ctx(
+                &self,
+                ctx: &mut pretty_fmt::PrettyContext,
+                f: &mut std::fmt::Formatter,
+            ) -> std::fmt::Result {
+                #body
             }
         }
-        .into(),
-        Err(e) => e.to_compile_error().into(),
     }
 }
 
