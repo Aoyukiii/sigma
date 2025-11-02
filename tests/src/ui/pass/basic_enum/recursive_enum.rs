@@ -1,4 +1,3 @@
-use pretty_fmt;
 use pretty_fmt_macros::PrettyFmt;
 
 #[derive(PrettyFmt)]
