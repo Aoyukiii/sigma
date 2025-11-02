@@ -5,6 +5,13 @@ use syn::{
     Variant, parse_macro_input,
 };
 
+mod attr_name {
+    pub const SKIP: &str = "skip";
+    pub const IMPL_DISPLAY: &str = "impl_display";
+    pub const PRETTY_FMT: &str = "pretty_fmt";
+    pub const HEADER: &str = "header";
+}
+
 #[proc_macro_derive(PrettyFmt, attributes(pretty_fmt, skip, header, impl_display))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -23,14 +30,15 @@ struct FieldConfig {
 
 impl FieldConfig {
     fn from_attrs(attrs: &Vec<Attribute>) -> syn::Result<Self> {
-        let skip = find_attr(attrs, "skip").is_some();
-        let impl_display = find_attr(attrs, "impl_display").is_some();
-        let fmt_attr = find_attr(attrs, "pretty_fmt");
+        use attr_name::*;
+        let skip = find_attr(attrs, SKIP).is_some();
+        let impl_display = find_attr(attrs, IMPL_DISPLAY).is_some();
+        let fmt_attr = find_attr(attrs, PRETTY_FMT);
         let custom_fmt = match fmt_attr {
             Some(attr) => Some(attr.parse_args::<proc_macro2::TokenStream>()?),
             None => None,
         };
-        let header_attr = find_attr(attrs, "header");
+        let header_attr = find_attr(attrs, HEADER);
         let header_fmt = match header_attr {
             Some(attr) => Some(attr.parse_args::<proc_macro2::TokenStream>()?),
             None => None,
