@@ -9,7 +9,15 @@ struct Named {
     attr2: i32,
 }
 
+#[derive(PrettyFmt)]
+#[impl_display]
+struct Unnamed(#[skip] i32, i32);
+
 fn main() {
     let named = Named { attr1: 1, attr2: 2 };
-    println!("{named}")
+    let attr1 = named.attr1;
+    println!("{named} {attr1}");
+    let unnamed = Unnamed(3, 4);
+    let attr1 = unnamed.0;
+    println!("{unnamed} {attr1}");
 }
