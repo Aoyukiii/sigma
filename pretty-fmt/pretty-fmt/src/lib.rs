@@ -55,19 +55,28 @@ pub trait PrettyFmt {
 pub struct NodeFormatter<'a, 'b, 'c> {
     ctx: &'a PrettyContext<'b>,
     writer: &'a mut fmt::Formatter<'c>,
+    has_field: bool,
 }
 
 impl<'a, 'b, 'c> NodeFormatter<'a, 'b, 'c> {
     pub fn new(ctx: &'a PrettyContext<'b>, writer: &'a mut fmt::Formatter<'c>) -> Self {
-        Self { ctx, writer }
+        Self {
+            ctx,
+            writer,
+            has_field: false,
+        }
     }
 
     pub fn header(self, header: &'a str) -> Result<Self, fmt::Error> {
-        writeln!(self.writer, "{}(", header)?;
+        write!(self.writer, "{}", header)?;
         Ok(self)
     }
 
-    pub fn field(self, key: &'a str, value: &impl PrettyFmt) -> Result<Self, fmt::Error> {
+    pub fn field(mut self, key: &'a str, value: &impl PrettyFmt) -> Result<Self, fmt::Error> {
+        if !self.has_field {
+            writeln!(self.writer, "(")?;
+            self.has_field = true;
+        }
         let ctx = self.ctx.indent();
         ctx.write_levelled_indent(self.writer)?;
         write!(self.writer, "{}: ", key)?;
@@ -76,15 +85,10 @@ impl<'a, 'b, 'c> NodeFormatter<'a, 'b, 'c> {
         Ok(self)
     }
 
-    pub fn content(self, content: &impl PrettyFmt) -> Result<Self, fmt::Error> {
-        let ctx = self.ctx.indent();
-        ctx.write_levelled_indent(self.writer)?;
-        content.pretty_fmt_with_ctx(&ctx, self.writer)?;
-        writeln!(self.writer, "")?;
-        Ok(self)
-    }
-
     pub fn finish(self) -> std::fmt::Result {
+        if !self.has_field {
+            return Ok(());
+        }
         self.ctx.write_levelled_indent(self.writer)?;
         write!(self.writer, ")")
     }
