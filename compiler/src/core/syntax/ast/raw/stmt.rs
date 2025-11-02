@@ -3,10 +3,8 @@ use pretty_fmt_macros::PrettyFmt;
 
 use crate::core::{syntax::ast::raw::expr::RawExpr, utils::span::Span};
 
-use pretty_fmt::PrettyFmt;
-
 #[derive(Debug, PrettyFmt)]
-#[pretty_fmt("{} {} @ {}", "[Stmt]".yellow(), kind, span)]
+#[pretty_fmt("{} {} @ {}", "[Stmt]".yellow(), kind.with_ctx(ctx), span)]
 #[impl_display]
 pub struct RawStmt {
     pub kind: RawStmtKind,
@@ -22,6 +20,7 @@ impl From<(RawStmtKind, Span)> for RawStmt {
 #[derive(Debug, PrettyFmt)]
 #[impl_display]
 pub enum RawStmtKind {
+    #[pretty_fmt("{}", arg0.with_ctx(ctx))]
     Def(Box<Def>),
     Eval(Box<RawExpr>),
     #[pretty_fmt("{}", "Error".red())]

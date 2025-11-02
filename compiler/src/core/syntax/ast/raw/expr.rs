@@ -11,7 +11,7 @@ use crate::core::{
 use pretty_fmt::PrettyFmt;
 
 #[derive(Debug, PrettyFmt)]
-#[pretty_fmt("{} @ {}", kind, span)]
+#[pretty_fmt("{} @ {}", kind.with_ctx(ctx), span)]
 pub struct RawExpr {
     pub kind: RawExprKind,
     pub span: Span,
