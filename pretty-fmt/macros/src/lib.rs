@@ -183,18 +183,35 @@ fn generate_body_for_struct(
         Unit => unreachable!(),
         Named(it) => it
             .iter()
-            .map(|(ident, _)| {
-                quote! { let #ident = &self.#ident; }
+            .filter_map(|(ident, config)| {
+                if config.skip {
+                    None
+                } else {
+                    Some(quote! { let #ident = &self.#ident; })
+                }
             })
             .collect(),
         Unnamed(it) => it
             .iter()
-            .map(|(idx, _)| {
-                let ident = make_ident(&format!("arg{}", idx));
-                quote! { let #ident = &self.#idx; }
+            .filter_map(|(idx, config)| {
+                if config.skip {
+                    None
+                } else {
+                    let ident = make_ident(&format!("arg{}", idx));
+                    Some(quote! { let #ident = &self.#idx; })
+                }
             })
             .collect(),
     };
+
+    if let Some(custom_fmt) = custom_fmt {
+        let ret = quote! { write!(f, "{}", #custom_fmt) };
+        let body = quote! {
+            #(#let_stmts)*
+            #ret
+        };
+        return Ok(body);
+    }
 
     let field_chains: Vec<proc_macro2::TokenStream> = match &configs {
         Unit => unreachable!(),
@@ -229,9 +246,7 @@ fn generate_body_for_struct(
             #(#field_chains)*
             .finish()
     };
-    let ret = custom_fmt
-        .map(|custom_fmt| quote! { write!(f, "{}", #custom_fmt) })
-        .unwrap_or(ret);
+
     let body = quote! {
         #(#let_stmts)*
         #ret
