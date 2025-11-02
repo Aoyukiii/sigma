@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{ToTokens, quote};
 use syn::{
     Attribute, Data, DataEnum, DeriveInput, Fields, FieldsNamed, FieldsUnnamed, Ident, Index,
     Variant, parse_macro_input,
@@ -210,38 +210,41 @@ fn generate_body_for_enum(data: &DataEnum) -> syn::Result<proc_macro2::TokenStre
     Ok(body)
 }
 
+fn validate_config<T: ToTokens>(
+    configs: &StructConfigs,
+    top_config: &FieldConfig,
+    report_tokens: T,
+) -> syn::Result<()> {
+    if top_config.has_custom_and_header() {
+        return Err(syn::Error::new_spanned(
+            report_tokens,
+            "Attributes `pretty_fmt` and `header` cannot be used simultaneously",
+        ));
+    }
+
+    if let StructConfigs::Unit = configs {
+        if top_config.header_fmt.is_some() {
+            return Err(syn::Error::new_spanned(
+                report_tokens,
+                "Attribute `header` cannot be used on the top of empty structs",
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 fn generate_body_for_struct(
     struct_ident: &Ident,
     fields: &Fields,
     attrs: &Vec<Attribute>,
 ) -> syn::Result<proc_macro2::TokenStream> {
-    use StructConfigs::*;
-
     let configs = StructConfigs::from_fields(fields)?;
     let struct_config = FieldConfig::from_attrs(attrs)?;
 
-    if struct_config.has_custom_and_header() {
-        return Err(syn::Error::new_spanned(
-            struct_ident,
-            "Attributes `pretty_fmt` and `header` cannot be used simultaneously",
-        ));
-    }
+    validate_config(&configs, &struct_config, struct_ident)?;
 
     let struct_name = struct_ident.to_string();
-
-    if let Unit = configs {
-        if struct_config.header_fmt.is_some() {
-            return Err(syn::Error::new_spanned(
-                struct_ident,
-                "Attribute `header` cannot be used on the top of empty structs",
-            ));
-        }
-        let custom_fmt = struct_config.custom_fmt.unwrap_or(quote! { #struct_name });
-        let body = quote! {
-            write!(f, "{}", #custom_fmt)
-        };
-        return Ok(body);
-    }
 
     let let_stmts = configs.make_let_stmts();
     let ret = generate_ret_expr(configs, struct_config, struct_name)?;
@@ -253,37 +256,14 @@ fn generate_body_for_struct(
 }
 
 fn generate_arm(variant: &Variant) -> syn::Result<proc_macro2::TokenStream> {
-    use StructConfigs::*;
-
     let variant_ident = &variant.ident;
 
     let configs = StructConfigs::from_fields(&variant.fields)?;
     let variant_config = FieldConfig::from_attrs(&variant.attrs)?;
 
-    if variant_config.has_custom_and_header() {
-        return Err(syn::Error::new_spanned(
-            variant_ident,
-            "Attributes `pretty_fmt` and `header` cannot be used simultaneously",
-        ));
-    }
+    validate_config(&configs, &variant_config, variant_ident)?;
 
     let variant_name = variant_ident.to_string();
-
-    if let Unit = configs {
-        if variant_config.header_fmt.is_some() {
-            return Err(syn::Error::new_spanned(
-                variant_ident,
-                "Attribute `header` cannot be used on unit variants",
-            ));
-        }
-        let custom_fmt = variant_config
-            .custom_fmt
-            .unwrap_or(quote! { #variant_name });
-        let arm = quote! {
-            Self::#variant_ident => write!(f, "{}", #custom_fmt)
-        };
-        return Ok(arm);
-    };
 
     let unpacking = configs.make_unpacking();
     let ret = generate_ret_expr(configs, variant_config, variant_name)?;
@@ -310,7 +290,7 @@ fn generate_ret_expr(
     let header_fmt = header_fmt.unwrap_or(quote! { #header_fallback });
 
     let field_chains: Vec<proc_macro2::TokenStream> = match &configs {
-        Unit => unreachable!(),
+        Unit => vec![],
         Named(it) => it
             .iter()
             .filter_map(|(field_ident, config)| {
