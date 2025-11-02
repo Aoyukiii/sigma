@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
-use quote::{ToTokens, quote};
+use quote::quote;
 use syn::{
-    Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, FieldsUnnamed, Ident,
+    Attribute, Data, DataEnum, DeriveInput, Fields, FieldsNamed, FieldsUnnamed, Ident, Index,
     Variant, parse_macro_input,
 };
 
@@ -14,14 +14,14 @@ pub fn derive(input: TokenStream) -> TokenStream {
     }
 }
 
-struct FmtConfig {
+struct FieldConfig {
     skip: bool,
     impl_display: bool,
     custom_fmt: Option<proc_macro2::TokenStream>,
     header_fmt: Option<proc_macro2::TokenStream>,
 }
 
-impl FmtConfig {
+impl FieldConfig {
     fn from_attrs(attrs: &Vec<Attribute>) -> syn::Result<Self> {
         let skip = find_attr(attrs, "skip").is_some();
         let impl_display = find_attr(attrs, "impl_display").is_some();
@@ -44,26 +44,30 @@ impl FmtConfig {
             header_fmt,
         })
     }
+
+    fn has_custom_and_header(&self) -> bool {
+        self.custom_fmt.is_some() && self.header_fmt.is_some()
+    }
 }
 
 fn find_attr<'a, 'b>(attrs: &'a Vec<Attribute>, name: &'b str) -> Option<&'a Attribute> {
     attrs.iter().find(|attr| attr.path().is_ident(name))
 }
 
-enum FieldConfigs {
+enum StructConfigs {
     Unit,
-    Named(Vec<(Ident, FmtConfig)>),
-    Unnamed(Vec<(usize, FmtConfig)>),
+    Named(Vec<(Ident, FieldConfig)>),
+    Unnamed(Vec<(usize, FieldConfig)>),
 }
 
-impl FieldConfigs {
+impl StructConfigs {
     fn from_fields(fields: &Fields) -> syn::Result<Self> {
         match fields {
             Fields::Unit => Ok(Self::Unit),
             Fields::Named(FieldsNamed { named, .. }) => {
                 let mut result = Vec::with_capacity(named.len());
                 for field in named {
-                    let config = FmtConfig::from_attrs(&field.attrs)?;
+                    let config = FieldConfig::from_attrs(&field.attrs)?;
                     result.push((field.ident.clone().unwrap(), config));
                 }
                 Ok(Self::Named(result))
@@ -71,13 +75,63 @@ impl FieldConfigs {
             Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
                 let mut result = Vec::with_capacity(unnamed.len());
                 for (i, field) in unnamed.iter().enumerate() {
-                    let config = FmtConfig::from_attrs(&field.attrs)?;
+                    let config = FieldConfig::from_attrs(&field.attrs)?;
                     result.push((i, config));
                 }
                 Ok(Self::Unnamed(result))
             }
         }
     }
+
+    fn make_unpacking(&self) -> proc_macro2::TokenStream {
+        match self {
+            Self::Unit => quote! {},
+            Self::Named(it) => {
+                let field_patterns: Vec<proc_macro2::TokenStream> = it
+                    .iter()
+                    .map(|(ident, _)| {
+                        quote! { #ident }
+                    })
+                    .collect();
+                quote! { {#(#field_patterns),*} }
+            }
+            Self::Unnamed(it) => {
+                let field_patterns: Vec<proc_macro2::TokenStream> = it
+                    .iter()
+                    .map(|(i, _)| {
+                        let ident = make_idx_ident(*i);
+                        quote! { #ident }
+                    })
+                    .collect();
+                quote! { (#(#field_patterns),*) }
+            }
+        }
+    }
+
+    fn make_let_stmts(&self) -> proc_macro2::TokenStream {
+        let let_stmts: Vec<proc_macro2::TokenStream> = match self {
+            Self::Unit => vec![],
+            Self::Named(it) => it
+                .iter()
+                .map(|(ident, _)| {
+                    quote! { let #ident = &self.#ident; }
+                })
+                .collect(),
+            Self::Unnamed(it) => it
+                .iter()
+                .map(|(i, _)| {
+                    let ident = make_idx_ident(*i);
+                    let index = Index::from(*i);
+                    quote! { let #ident = &self.#index; }
+                })
+                .collect(),
+        };
+        quote! { #(#let_stmts)* }
+    }
+}
+
+fn make_idx_ident(idx: usize) -> Ident {
+    make_ident(&format!("arg{idx}"))
 }
 
 fn make_ident(name: &str) -> Ident {
@@ -87,14 +141,14 @@ fn make_ident(name: &str) -> Ident {
 fn generate_from_input(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let struct_ident = &input.ident;
     let attrs = &input.attrs;
-    let impl_display = FmtConfig::from_attrs(&input.attrs)?.impl_display;
+    let impl_display = FieldConfig::from_attrs(&input.attrs)?.impl_display;
     match &input.data {
         Data::Enum(data) => {
             let body = generate_body_for_enum(data)?;
             Ok(generate_impl(struct_ident, body))
         }
         Data::Struct(data) => {
-            let body = generate_body_for_struct(struct_ident, data, attrs)?;
+            let body = generate_body_for_struct(struct_ident, &data.fields, attrs)?;
             Ok(generate_impl(struct_ident, body))
         }
         _ => Err(syn::Error::new_spanned(
@@ -131,6 +185,10 @@ fn generate_impl(type_ident: &Ident, body: proc_macro2::TokenStream) -> proc_mac
 }
 
 fn generate_body_for_enum(data: &DataEnum) -> syn::Result<proc_macro2::TokenStream> {
+    if data.variants.is_empty() {
+        let body = quote! { Ok(()) };
+        return Ok(body);
+    }
     let arms = data
         .variants
         .iter()
@@ -146,19 +204,17 @@ fn generate_body_for_enum(data: &DataEnum) -> syn::Result<proc_macro2::TokenStre
 
 fn generate_body_for_struct(
     struct_ident: &Ident,
-    data: &DataStruct,
+    fields: &Fields,
     attrs: &Vec<Attribute>,
 ) -> syn::Result<proc_macro2::TokenStream> {
-    use FieldConfigs::*;
-    let configs = FieldConfigs::from_fields(&data.fields)?;
-    let config = FmtConfig::from_attrs(attrs)?;
+    use StructConfigs::*;
 
-    let custom_fmt = config.custom_fmt;
-    let header_fmt = config.header_fmt;
+    let configs = StructConfigs::from_fields(fields)?;
+    let struct_config = FieldConfig::from_attrs(attrs)?;
 
-    if custom_fmt.is_some() && header_fmt.is_some() {
+    if struct_config.has_custom_and_header() {
         return Err(syn::Error::new_spanned(
-            struct_ident.to_token_stream(),
+            struct_ident,
             "Attributes `pretty_fmt` and `header` cannot be used simultaneously",
         ));
     }
@@ -166,63 +222,95 @@ fn generate_body_for_struct(
     let struct_name = struct_ident.to_string();
 
     if let Unit = configs {
-        if header_fmt.is_some() {
+        if struct_config.header_fmt.is_some() {
             return Err(syn::Error::new_spanned(
-                struct_ident.to_token_stream(),
-                "Attribute `header` cannot be used on the top of structs",
+                struct_ident,
+                "Attribute `header` cannot be used on the top of empty structs",
             ));
         }
-        let custom_fmt = custom_fmt.unwrap_or(quote! { #struct_name });
+        let custom_fmt = struct_config.custom_fmt.unwrap_or(quote! { #struct_name });
         let body = quote! {
-            write!(f, #custom_fmt)
+            write!(f, "{}", #custom_fmt)
         };
         return Ok(body);
     }
 
-    let let_stmts: Vec<proc_macro2::TokenStream> = match &configs {
-        Unit => unreachable!(),
-        Named(it) => it
-            .iter()
-            .filter_map(|(ident, config)| {
-                if config.skip {
-                    None
-                } else {
-                    Some(quote! { let #ident = &self.#ident; })
-                }
-            })
-            .collect(),
-        Unnamed(it) => it
-            .iter()
-            .filter_map(|(idx, config)| {
-                if config.skip {
-                    None
-                } else {
-                    let ident = make_ident(&format!("arg{}", idx));
-                    Some(quote! { let #ident = &self.#idx; })
-                }
-            })
-            .collect(),
+    let let_stmts = configs.make_let_stmts();
+    let ret = generate_ret_expr(configs, struct_config, struct_name)?;
+    let body = quote! {
+        #let_stmts
+        #ret
+    };
+    Ok(body)
+}
+
+fn generate_arm(variant: &Variant) -> syn::Result<proc_macro2::TokenStream> {
+    use StructConfigs::*;
+
+    let variant_ident = &variant.ident;
+
+    let configs = StructConfigs::from_fields(&variant.fields)?;
+    let variant_config = FieldConfig::from_attrs(&variant.attrs)?;
+
+    if variant_config.has_custom_and_header() {
+        return Err(syn::Error::new_spanned(
+            variant_ident,
+            "Attributes `pretty_fmt` and `header` cannot be used simultaneously",
+        ));
+    }
+
+    let variant_name = variant_ident.to_string();
+
+    if let Unit = configs {
+        if variant_config.header_fmt.is_some() {
+            return Err(syn::Error::new_spanned(
+                variant_ident,
+                "Attribute `header` cannot be used on unit variants",
+            ));
+        }
+        let custom_fmt = variant_config
+            .custom_fmt
+            .unwrap_or(quote! { #variant_name });
+        let arm = quote! {
+            Self::#variant_ident => write!(f, "{}", #custom_fmt)
+        };
+        return Ok(arm);
     };
 
+    let unpacking = configs.make_unpacking();
+    let ret = generate_ret_expr(configs, variant_config, variant_name)?;
+    let arm = quote! {
+        Self::#variant_ident #unpacking => #ret
+    };
+    Ok(arm)
+}
+
+fn generate_ret_expr(
+    configs: StructConfigs,
+    top_config: FieldConfig,
+    header_fallback: String,
+) -> syn::Result<proc_macro2::TokenStream> {
+    use StructConfigs::*;
+
+    let custom_fmt = top_config.custom_fmt;
+    let header_fmt = top_config.header_fmt;
+
     if let Some(custom_fmt) = custom_fmt {
-        let ret = quote! { write!(f, "{}", #custom_fmt) };
-        let body = quote! {
-            #(#let_stmts)*
-            #ret
-        };
-        return Ok(body);
+        return Ok(quote! { write!(f, "{}", #custom_fmt) });
     }
+
+    let header_fmt = header_fmt.unwrap_or(quote! { #header_fallback });
 
     let field_chains: Vec<proc_macro2::TokenStream> = match &configs {
         Unit => unreachable!(),
         Named(it) => it
             .iter()
-            .filter_map(|(ident, config)| {
+            .filter_map(|(field_ident, config)| {
                 if config.skip {
                     None
                 } else {
-                    let ident_name = ident.to_string();
-                    Some(quote! { .field(#ident_name, #ident)? })
+                    let field_name = field_ident.to_string();
+                    Some(quote! { .field(#field_name, #field_ident)? })
                 }
             })
             .collect(),
@@ -232,14 +320,14 @@ fn generate_body_for_struct(
                 if config.skip {
                     None
                 } else {
-                    let idx_name = idx.to_string();
-                    Some(quote! { .field(#idx_name, #idx)? })
+                    let is = idx.to_string();
+                    let ident = make_idx_ident(*idx);
+                    Some(quote! { .field(#is, #ident)? })
                 }
             })
             .collect(),
     };
 
-    let header_fmt = header_fmt.unwrap_or(quote! { #struct_name });
     let ret = quote! {
         pretty_fmt::NodeFormatter::new(ctx, f)
             .header(&#header_fmt)?
@@ -247,113 +335,5 @@ fn generate_body_for_struct(
             .finish()
     };
 
-    let body = quote! {
-        #(#let_stmts)*
-        #ret
-    };
-    Ok(body)
-}
-
-fn generate_arm(variant: &Variant) -> syn::Result<proc_macro2::TokenStream> {
-    use FieldConfigs::*;
-
-    let configs = FieldConfigs::from_fields(&variant.fields)?;
-    let variant_ident = &variant.ident;
-    let variant_name = variant_ident.to_string();
-
-    let variant_config = FmtConfig::from_attrs(&variant.attrs)?;
-
-    let custom_fmt = variant_config.custom_fmt;
-    let header_fmt = variant_config.header_fmt;
-
-    if custom_fmt.is_some() && header_fmt.is_some() {
-        return Err(syn::Error::new_spanned(
-            variant.to_token_stream(),
-            "Attributes `pretty_fmt` and `header` cannot be used simultaneously",
-        ));
-    }
-
-    if let Unit = configs {
-        if header_fmt.is_some() {
-            return Err(syn::Error::new_spanned(
-                variant.to_token_stream(),
-                "Attribute `header` cannot be used on unit variants",
-            ));
-        }
-        let custom_fmt = custom_fmt.unwrap_or(quote! { #variant_name });
-        let body = quote! {
-            Self::#variant_ident => write!(f, "{}", #custom_fmt)
-        };
-        return Ok(body);
-    }
-
-    let unpacking = match &configs {
-        Unit => unreachable!(),
-        Named(it) => {
-            let field_patterns: Vec<proc_macro2::TokenStream> = it
-                .iter()
-                .map(|(field_ident, _)| {
-                    quote! { #field_ident }
-                })
-                .collect();
-            quote! { {#(#field_patterns),*} }
-        }
-        Unnamed(it) => {
-            let field_patterns: Vec<proc_macro2::TokenStream> = it
-                .iter()
-                .map(|(i, _)| {
-                    let ident = make_ident(&format!("arg{i}"));
-                    quote! { #ident }
-                })
-                .collect();
-            quote! { (#(#field_patterns),*) }
-        }
-    };
-
-    if let Some(custom_fmt) = custom_fmt {
-        let arm = quote! {
-            Self::#variant_ident #unpacking => write!(f, "{}", #custom_fmt)
-        };
-        eprintln!("{arm}");
-        return Ok(arm);
-    }
-
-    let ret = {
-        let field_chains: Vec<proc_macro2::TokenStream> = match &configs {
-            Unit => unreachable!(),
-            Named(it) => it
-                .iter()
-                .filter(|(_, config)| !config.skip)
-                .map(|(field_ident, _)| {
-                    let field_name = field_ident.to_string();
-                    quote! {
-                        .field(#field_name, #field_ident)?
-                    }
-                })
-                .collect(),
-            Unnamed(it) => it
-                .iter()
-                .filter(|(_, config)| !config.skip)
-                .map(|(i, _)| {
-                    let is = i.to_string();
-                    let ident = make_ident(&format!("arg{i}"));
-                    quote! {
-                        .field(#is, #ident)?
-                    }
-                })
-                .collect(),
-        };
-        let header_fmt = header_fmt.unwrap_or(quote! { #variant_name });
-        quote! {
-            pretty_fmt::NodeFormatter::new(ctx, f)
-                .header(&#header_fmt)?
-                #(#field_chains)*
-                .finish()
-        }
-    };
-
-    let arm = quote! {
-        Self::#variant_ident #unpacking => #ret
-    };
-    Ok(arm)
+    Ok(ret)
 }
