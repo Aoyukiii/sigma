@@ -236,9 +236,6 @@ fn generate_body_for_struct(
         #(#let_stmts)*
         #ret
     };
-
-    eprintln!("{body}");
-
     Ok(body)
 }
 
