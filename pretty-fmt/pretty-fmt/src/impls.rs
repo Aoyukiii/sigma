@@ -47,6 +47,7 @@ macro_rules! impl_display_for_pretty_fmt {
         $(
             impl std::fmt::Display for $ty {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    use pretty_fmt::PrettyFmt;
                     self.pretty_fmt(f)
                 }
 }
