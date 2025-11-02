@@ -7,7 +7,7 @@ use pretty_fmt_macros::PrettyFmt;
 use crate::core::utils::cursor::{Cursor, ToCursor};
 
 #[derive(Clone, Copy, PartialEq, Eq, PrettyFmt)]
-#[pretty_fmt("{}", format!("{}..{}", self.start, self.end).yellow())]
+#[pretty_fmt("{}", format!("{}..{}", start, end).yellow())]
 #[impl_display]
 pub struct Span {
     start: usize,
