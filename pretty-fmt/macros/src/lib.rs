@@ -56,6 +56,10 @@ impl FieldConfig {
     fn has_custom_and_header(&self) -> bool {
         self.custom_fmt.is_some() && self.header_fmt.is_some()
     }
+
+    fn get_fmt(&self) -> Option<&proc_macro2::TokenStream> {
+        self.custom_fmt.as_ref().or(self.header_fmt.as_ref())
+    }
 }
 
 fn find_attr<'a, 'b>(attrs: &'a Vec<Attribute>, name: &'b str) -> Option<&'a Attribute> {
@@ -116,21 +120,33 @@ impl StructConfigs {
         }
     }
 
-    fn make_let_stmts(&self) -> proc_macro2::TokenStream {
+    fn make_let_stmts(&self, fmt: Option<&proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
+        let idents = match fmt {
+            Some(fmt) => collect_idents(fmt),
+            None => vec![],
+        };
         let let_stmts: Vec<proc_macro2::TokenStream> = match self {
             Self::Unit => vec![],
             Self::Named(it) => it
                 .iter()
-                .map(|(ident, _)| {
-                    quote! { let #ident = &self.#ident; }
+                .filter_map(|(ident, config)| {
+                    if config.skip && !idents.contains(ident) {
+                        None
+                    } else {
+                        Some(quote! { let #ident = &self.#ident; })
+                    }
                 })
                 .collect(),
             Self::Unnamed(it) => it
                 .iter()
-                .map(|(i, _)| {
+                .filter_map(|(i, config)| {
                     let ident = make_idx_ident(*i);
-                    let index = Index::from(*i);
-                    quote! { let #ident = &self.#index; }
+                    if config.skip && !idents.contains(&ident) {
+                        None
+                    } else {
+                        let index = Index::from(*i);
+                        Some(quote! { let #ident = &self.#index; })
+                    }
                 })
                 .collect(),
         };
@@ -144,6 +160,24 @@ fn make_idx_ident(idx: usize) -> Ident {
 
 fn make_ident(name: &str) -> Ident {
     Ident::new(name, proc_macro2::Span::call_site())
+}
+
+fn collect_idents(tokens: &proc_macro2::TokenStream) -> Vec<Ident> {
+    let mut idents = Vec::new();
+    collect_idents_recursive(tokens, &mut idents);
+    idents
+}
+
+fn collect_idents_recursive(tokens: &proc_macro2::TokenStream, idents: &mut Vec<Ident>) {
+    for token in tokens.clone().into_iter() {
+        match token {
+            proc_macro2::TokenTree::Ident(ident) => idents.push(ident),
+            proc_macro2::TokenTree::Group(group) => {
+                collect_idents_recursive(&group.stream(), idents)
+            }
+            _ => {}
+        }
+    }
 }
 
 fn generate_from_input(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
@@ -246,7 +280,8 @@ fn generate_body_for_struct(
 
     let struct_name = struct_ident.to_string();
 
-    let let_stmts = configs.make_let_stmts();
+    let fmt = struct_config.get_fmt();
+    let let_stmts = configs.make_let_stmts(fmt);
     let ret = generate_ret_expr(configs, struct_config, struct_name)?;
     let body = quote! {
         #let_stmts
