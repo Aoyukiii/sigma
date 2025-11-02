@@ -7,3 +7,6 @@ edition = "2024"
 colored = "3.0"
 pretty-fmt = { path = "../pretty-fmt/pretty-fmt" }
 pretty-fmt-macros = { path = "../pretty-fmt/macros" }
+
+[dev-dependencies]
+trybuild = "1.0"
