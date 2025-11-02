@@ -95,14 +95,22 @@ impl StructConfigs {
         }
     }
 
-    fn make_unpacking(&self) -> proc_macro2::TokenStream {
+    fn make_unpacking(&self, fmt: Option<&proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
+        let idents = match fmt {
+            Some(fmt) => collect_idents(fmt),
+            None => vec![],
+        };
         match self {
             Self::Unit => quote! {},
             Self::Named(it) => {
                 let field_patterns: Vec<proc_macro2::TokenStream> = it
                     .iter()
-                    .map(|(ident, _)| {
-                        quote! { #ident }
+                    .map(|(ident, config)| {
+                        if config.skip && !idents.contains(ident) {
+                            quote! { #ident: _ }
+                        } else {
+                            quote! { #ident }
+                        }
                     })
                     .collect();
                 quote! { {#(#field_patterns),*} }
@@ -110,9 +118,13 @@ impl StructConfigs {
             Self::Unnamed(it) => {
                 let field_patterns: Vec<proc_macro2::TokenStream> = it
                     .iter()
-                    .map(|(i, _)| {
+                    .map(|(i, config)| {
                         let ident = make_idx_ident(*i);
-                        quote! { #ident }
+                        if config.skip && !idents.contains(&ident) {
+                            quote! { _ }
+                        } else {
+                            quote! { #ident }
+                        }
                     })
                     .collect();
                 quote! { (#(#field_patterns),*) }
@@ -300,7 +312,8 @@ fn generate_arm(variant: &Variant) -> syn::Result<proc_macro2::TokenStream> {
 
     let variant_name = variant_ident.to_string();
 
-    let unpacking = configs.make_unpacking();
+    let fmt = variant_config.get_fmt();
+    let unpacking = configs.make_unpacking(fmt);
     let ret = generate_ret_expr(configs, variant_config, variant_name)?;
     let arm = quote! {
         Self::#variant_ident #unpacking => #ret
