@@ -1,6 +1,7 @@
 pub mod impls;
 use std::fmt;
 
+#[derive(Debug)]
 pub struct PrettyContext<'a> {
     indent: &'a str,
     level: usize,
