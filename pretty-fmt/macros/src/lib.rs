@@ -53,12 +53,28 @@ impl FieldConfig {
         })
     }
 
+    fn has_custom(&self) -> bool {
+        self.custom_fmt.is_some()
+    }
+
+    fn has_header(&self) -> bool {
+        self.header_fmt.is_some()
+    }
+
     fn has_custom_and_header(&self) -> bool {
-        self.custom_fmt.is_some() && self.header_fmt.is_some()
+        self.has_custom() && self.has_header()
     }
 
     fn get_fmt(&self) -> Option<&proc_macro2::TokenStream> {
         self.custom_fmt.as_ref().or(self.header_fmt.as_ref())
+    }
+
+    fn collect_idents(&self) -> Vec<Ident> {
+        let idents = match self.get_fmt() {
+            Some(fmt) => collect_idents(fmt),
+            None => vec![],
+        };
+        idents
     }
 }
 
@@ -95,18 +111,15 @@ impl StructConfigs {
         }
     }
 
-    fn make_unpacking(&self, fmt: Option<&proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
-        let idents = match fmt {
-            Some(fmt) => collect_idents(fmt),
-            None => vec![],
-        };
+    fn make_unpacking(&self, top_config: &FieldConfig) -> proc_macro2::TokenStream {
+        let idents = top_config.collect_idents();
         match self {
             Self::Unit => quote! {},
             Self::Named(it) => {
                 let field_patterns: Vec<proc_macro2::TokenStream> = it
                     .iter()
                     .map(|(ident, config)| {
-                        if config.skip && !idents.contains(ident) {
+                        if (top_config.has_custom() || config.skip) && !idents.contains(ident) {
                             quote! { #ident: _ }
                         } else {
                             quote! { #ident }
@@ -120,7 +133,7 @@ impl StructConfigs {
                     .iter()
                     .map(|(i, config)| {
                         let ident = make_idx_ident(*i);
-                        if config.skip && !idents.contains(&ident) {
+                        if (top_config.has_custom() || config.skip) && !idents.contains(&ident) {
                             quote! { _ }
                         } else {
                             quote! { #ident }
@@ -132,17 +145,14 @@ impl StructConfigs {
         }
     }
 
-    fn make_let_stmts(&self, fmt: Option<&proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
-        let idents = match fmt {
-            Some(fmt) => collect_idents(fmt),
-            None => vec![],
-        };
+    fn make_let_stmts(&self, top_config: &FieldConfig) -> proc_macro2::TokenStream {
+        let idents = top_config.collect_idents();
         let let_stmts: Vec<proc_macro2::TokenStream> = match self {
             Self::Unit => vec![],
             Self::Named(it) => it
                 .iter()
                 .filter_map(|(ident, config)| {
-                    if config.skip && !idents.contains(ident) {
+                    if (top_config.has_custom() || config.skip) && !idents.contains(ident) {
                         None
                     } else {
                         Some(quote! { let #ident = &self.#ident; })
@@ -153,7 +163,7 @@ impl StructConfigs {
                 .iter()
                 .filter_map(|(i, config)| {
                     let ident = make_idx_ident(*i);
-                    if config.skip && !idents.contains(&ident) {
+                    if (top_config.has_custom() || config.skip) && !idents.contains(&ident) {
                         None
                     } else {
                         let index = Index::from(*i);
@@ -292,8 +302,7 @@ fn generate_body_for_struct(
 
     let struct_name = struct_ident.to_string();
 
-    let fmt = struct_config.get_fmt();
-    let let_stmts = configs.make_let_stmts(fmt);
+    let let_stmts = configs.make_let_stmts(&struct_config);
     let ret = generate_ret_expr(configs, struct_config, struct_name)?;
     let body = quote! {
         #let_stmts
@@ -312,8 +321,7 @@ fn generate_arm(variant: &Variant) -> syn::Result<proc_macro2::TokenStream> {
 
     let variant_name = variant_ident.to_string();
 
-    let fmt = variant_config.get_fmt();
-    let unpacking = configs.make_unpacking(fmt);
+    let unpacking = configs.make_unpacking(&variant_config);
     let ret = generate_ret_expr(configs, variant_config, variant_name)?;
     let arm = quote! {
         Self::#variant_ident #unpacking => #ret
